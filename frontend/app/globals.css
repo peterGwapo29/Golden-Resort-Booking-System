@@ -1,0 +1,52 @@
+@import "tailwindcss";
+
+/*
+ * Golden Resort design tokens.
+ * Exposed as Tailwind utilities, e.g. bg-forest, text-gold, text-ink, font-serif.
+ */
+@theme inline {
+  --color-forest: #173d32;
+  --color-forest-dark: #102a24;
+  --color-ivory: #f8f5ef;
+  --color-gold: #c6a66b;
+  --color-ink: #343a35;
+  --color-muted: #777d76;
+
+  --font-sans: var(--font-jost), ui-sans-serif, system-ui, sans-serif;
+  --font-serif: var(--font-cormorant), ui-serif, Georgia, serif;
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background-color: var(--color-ivory);
+    color: var(--color-ink);
+  }
+
+  /* Keep anchored sections clear of the fixed header. */
+  section[id] {
+    scroll-margin-top: 5rem;
+  }
+
+  ::selection {
+    background-color: var(--color-gold);
+    color: var(--color-forest-dark);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
