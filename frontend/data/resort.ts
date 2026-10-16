@@ -16,7 +16,7 @@ export const IS_SAMPLE_CONTENT = true;
 
 export type NavLink = {
   label: string;
-  href: `#${string}`;
+  href: string;
 };
 
 export type ResortImage = {
@@ -61,7 +61,7 @@ export const siteConfig = {
   tagline: "Your Escape to Paradise",
   description:
     "A peaceful tropical hideaway where lush gardens, calm waters and warm hospitality come together for an unhurried getaway.",
-  bookingHref: "#book",
+  bookingHref: "/booking",
   /** Editable placeholders. Do not replace with invented real details. */
   contact: {
     address: "Resort address to be confirmed",
@@ -71,12 +71,12 @@ export const siteConfig = {
 } as const;
 
 export const navLinks: NavLink[] = [
-  { label: "Home", href: "#home" },
-  { label: "Rooms and Suites", href: "#rooms" },
-  { label: "Amenities", href: "#amenities" },
-  { label: "Gallery", href: "#gallery" },
-  { label: "About Us", href: "#about" },
-  { label: "Contact", href: "#contact" },
+  { label: "Home", href: "/#home" },
+  { label: "Rooms and Suites", href: "/rooms" },
+  { label: "Amenities", href: "/#amenities" },
+  { label: "Gallery", href: "/#gallery" },
+  { label: "About Us", href: "/#about" },
+  { label: "Contact", href: "/#contact" },
 ];
 
 export const heroImage: ResortImage = {
@@ -105,7 +105,7 @@ export const featuredRooms: Room[] = [
       "A warm, wood-accented retreat opening onto leafy garden views, ideal for couples seeking quiet comfort.",
     sampleRatePhp: 6500,
     guests: "Up to 2 guests",
-    href: "#book",
+    href: "/rooms/deluxe-garden-room",
     image: {
       src: unsplash("1611892440504-42a792e24d32", 1200),
       alt: "Wood-paneled bedroom with a large bed and windows looking out onto tropical garden greenery",
@@ -119,7 +119,7 @@ export const featuredRooms: Room[] = [
       "Generous living space with a separate lounge area, designed so the whole family can unwind together.",
     sampleRatePhp: 11800,
     guests: "Up to 4 guests",
-    href: "#book",
+    href: "/rooms/premium-family-suite",
     image: {
       src: unsplash("1590490360182-c33d57733427", 1200),
       alt: "Spacious suite with a tufted sofa in the lounge area and a bed beside tall curtained windows",
@@ -133,7 +133,7 @@ export const featuredRooms: Room[] = [
       "A secluded villa with its own pool and terrace, offering complete privacy for an unforgettable stay.",
     sampleRatePhp: 22500,
     guests: "Up to 4 guests",
-    href: "#book",
+    href: "/rooms/private-pool-villa",
     image: {
       src: unsplash("1613977257363-707ba9348227", 1200),
       alt: "Modern white two-story villa with a private swimming pool and lawn",

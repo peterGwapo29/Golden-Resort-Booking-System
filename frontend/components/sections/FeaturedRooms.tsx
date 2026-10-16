@@ -1,4 +1,5 @@
 import Image from "next/image";
+import Link from "next/link";
 import { featuredRooms, formatPhp } from "@/data/resort";
 import SectionHeading from "@/components/ui/SectionHeading";
 import { ArrowRightIcon } from "@/components/ui/Icons";
@@ -52,20 +53,30 @@ export default function FeaturedRooms() {
                         Sample rate
                       </span>
                     </p>
-                    <a
+                    <Link
                       href={room.href}
                       aria-label={`View details for ${room.name}`}
                       className="inline-flex shrink-0 items-center gap-2 rounded-full border border-forest px-5 py-2.5 text-sm font-medium text-forest transition-colors hover:bg-forest hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
                     >
                       View Details
                       <ArrowRightIcon className="h-4 w-4" />
-                    </a>
+                    </Link>
                   </div>
                 </div>
               </article>
             </li>
           ))}
         </ul>
+
+        <div className="mt-12 text-center">
+          <Link
+            href="/rooms"
+            className="inline-flex items-center gap-3 rounded-full bg-forest px-8 py-3.5 text-sm font-medium tracking-wide text-white transition-colors hover:bg-forest-dark focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+          >
+            Explore All Rooms & Suites
+            <ArrowRightIcon className="h-4 w-4" />
+          </Link>
+        </div>
 
         <p className="mt-10 text-center text-xs text-muted">
           Room types, descriptions and rates shown are sample content for

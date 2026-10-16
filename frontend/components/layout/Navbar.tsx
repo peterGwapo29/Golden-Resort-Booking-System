@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useId, useState, useSyncExternalStore } from "react";
+import { usePathname } from "next/navigation";
+import Link from "next/link";
 import { navLinks, siteConfig } from "@/data/resort";
 import { CloseIcon, MenuIcon } from "@/components/ui/Icons";
 
@@ -17,13 +19,15 @@ const getServerScrolled = () => false;
 
 export default function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false);
+  const pathname = usePathname();
+  const isHome = pathname === "/";
   const scrolled = useSyncExternalStore(
     subscribeToScroll,
     getScrolled,
     getServerScrolled,
   );
   const menuId = useId();
-  const solid = scrolled || menuOpen;
+  const solid = !isHome || scrolled || menuOpen;
 
   // While the mobile menu is open: lock page scroll, close on Escape,
   // and close automatically if the viewport grows to the desktop layout.
@@ -52,6 +56,8 @@ export default function Navbar() {
   }, [menuOpen]);
 
   const closeMenu = () => setMenuOpen(false);
+  const getLinkHref = (href: string) =>
+    isHome && href.startsWith("/#") ? href.slice(1) : href;
 
   return (
     <header
@@ -69,8 +75,8 @@ export default function Navbar() {
       </a>
 
       <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-5 sm:px-8">
-        <a
-          href="#home"
+        <Link
+          href={isHome ? "#home" : "/#home"}
           onClick={closeMenu}
           className="group flex items-baseline gap-2 rounded focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-gold"
         >
@@ -80,30 +86,39 @@ export default function Navbar() {
           <span className="text-[0.7rem] font-medium tracking-[0.35em] text-gold uppercase">
             Resort
           </span>
-        </a>
+        </Link>
 
         <nav aria-label="Primary" className="hidden lg:block">
           <ul className="flex items-center gap-7">
-            {navLinks.map((link) => (
-              <li key={link.href}>
-                <a
-                  href={link.href}
-                  className="relative rounded py-1 text-sm tracking-wide transition-colors after:absolute after:inset-x-0 after:-bottom-0.5 after:h-px after:origin-left after:scale-x-0 after:bg-gold after:transition-transform hover:text-gold hover:after:scale-x-100 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-gold"
-                >
-                  {link.label}
-                </a>
-              </li>
-            ))}
+            {navLinks.map((link) => {
+              const targetHref = getLinkHref(link.href);
+              const isActive =
+                link.href === "/rooms" && pathname.startsWith("/rooms");
+              return (
+                <li key={link.href}>
+                  <Link
+                    href={targetHref}
+                    className={`relative rounded py-1 text-sm tracking-wide transition-colors after:absolute after:inset-x-0 after:-bottom-0.5 after:h-px after:origin-left after:transition-transform hover:text-gold hover:after:scale-x-100 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-gold ${
+                      isActive
+                        ? "text-gold font-medium after:scale-x-100 after:bg-gold"
+                        : "after:scale-x-0 after:bg-gold"
+                    }`}
+                  >
+                    {link.label}
+                  </Link>
+                </li>
+              );
+            })}
           </ul>
         </nav>
 
         <div className="flex items-center gap-3">
-          <a
+          <Link
             href={siteConfig.bookingHref}
             className="hidden rounded-full bg-gold px-6 py-2.5 text-sm font-medium tracking-wide text-forest-dark transition-colors hover:bg-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold sm:inline-block"
           >
             Book Your Stay
-          </a>
+          </Link>
 
           <button
             type="button"
@@ -131,24 +146,24 @@ export default function Navbar() {
         <ul className="flex flex-col px-5 py-6 sm:px-8">
           {navLinks.map((link) => (
             <li key={link.href} className="border-b border-forest/10">
-              <a
-                href={link.href}
+              <Link
+                href={getLinkHref(link.href)}
                 onClick={closeMenu}
                 className="block py-4 font-serif text-2xl text-forest transition-colors hover:text-gold focus-visible:outline-2 focus-visible:outline-gold"
               >
                 {link.label}
-              </a>
+              </Link>
             </li>
           ))}
         </ul>
         <div className="px-5 pb-10 sm:px-8">
-          <a
+          <Link
             href={siteConfig.bookingHref}
             onClick={closeMenu}
             className="block rounded-full bg-forest px-6 py-4 text-center text-sm font-medium tracking-wide text-white transition-colors hover:bg-forest-dark focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
           >
             Book Your Stay
-          </a>
+          </Link>
         </div>
       </nav>
     </header>

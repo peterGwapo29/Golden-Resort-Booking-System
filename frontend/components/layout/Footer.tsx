@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import Link from "next/link";
 import { navLinks, siteConfig } from "@/data/resort";
 import CurrentYear from "@/components/layout/CurrentYear";
 
@@ -17,8 +18,8 @@ export default function Footer() {
 
       <div className="mx-auto grid max-w-7xl gap-12 px-5 py-20 sm:px-8 md:grid-cols-2 lg:grid-cols-[1.4fr_1fr_1fr]">
         <div>
-          <a
-            href="#home"
+          <Link
+            href="/#home"
             className="inline-flex items-baseline gap-2 rounded text-white focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-gold"
           >
             <span className="font-serif text-3xl font-semibold tracking-wide">
@@ -27,7 +28,7 @@ export default function Footer() {
             <span className="text-xs font-medium tracking-[0.35em] text-gold uppercase">
               Resort
             </span>
-          </a>
+          </Link>
           <p className="mt-6 max-w-sm text-sm leading-relaxed">
             {siteConfig.description}
           </p>
@@ -40,12 +41,12 @@ export default function Footer() {
           <ul className="mt-6 grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
             {navLinks.map((link) => (
               <li key={link.href}>
-                <a
+                <Link
                   href={link.href}
                   className="rounded transition-colors hover:text-gold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
                 >
                   {link.label}
-                </a>
+                </Link>
               </li>
             ))}
           </ul>

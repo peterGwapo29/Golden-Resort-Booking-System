@@ -40,14 +40,13 @@ export default function BookingCTA() {
           the stars. Your tropical retreat is waiting.
         </p>
         <a
-          href="#contact"
+          href="/booking"
           className="mt-10 inline-flex items-center justify-center rounded-full bg-gold px-10 py-4 text-sm font-medium tracking-wide text-forest-dark transition-colors hover:bg-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
         >
           Book Your Stay
         </a>
         <p className="mt-5 text-xs text-white/60">
-          Online booking is coming soon. Please reach out through the contact
-          details below in the meantime.
+          Select your dates, preview sample room rates, and plan your stay.
         </p>
       </div>
     </section>
