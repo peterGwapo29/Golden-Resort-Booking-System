@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { AvailabilitySearchParams } from "@/types/booking";
 import {
@@ -24,24 +24,18 @@ export default function AvailabilitySearch({
   roomSlug,
 }: AvailabilitySearchProps) {
   const router = useRouter();
-  const [todayStr, setTodayStr] = useState<string>("");
-  const [checkIn, setCheckIn] = useState<string>(initialParams?.checkIn || "");
-  const [checkOut, setCheckOut] = useState<string>(initialParams?.checkOut || "");
+  const [todayStr] = useState<string>(() => getTodayLocalDateString());
+  const [checkIn, setCheckIn] = useState<string>(
+    () => initialParams?.checkIn || getTodayLocalDateString()
+  );
+  const [checkOut, setCheckOut] = useState<string>(
+    () =>
+      initialParams?.checkOut ||
+      getDefaultCheckOutDate(initialParams?.checkIn || getTodayLocalDateString())
+  );
   const [adults, setAdults] = useState<number>(initialParams?.adults ?? 2);
   const [children, setChildren] = useState<number>(initialParams?.children ?? 0);
   const [errors, setErrors] = useState<Record<string, string>>({});
-
-  useEffect(() => {
-    const today = getTodayLocalDateString();
-    setTodayStr(today);
-    if (!checkIn) {
-      const defaultIn = initialParams?.checkIn || today;
-      const defaultOut =
-        initialParams?.checkOut || getDefaultCheckOutDate(defaultIn);
-      setCheckIn(defaultIn);
-      setCheckOut(defaultOut);
-    }
-  }, [checkIn, initialParams]);
 
   const handleCheckInChange = (newCheckIn: string) => {
     setCheckIn(newCheckIn);

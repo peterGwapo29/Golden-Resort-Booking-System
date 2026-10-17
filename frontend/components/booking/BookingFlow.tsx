@@ -19,38 +19,49 @@ import BookingForm from "@/components/booking/BookingForm";
 import BookingSummaryCard from "@/components/booking/BookingSummaryCard";
 import BookingReview from "@/components/booking/BookingReview";
 
+import { getRooms } from "@/lib/api";
+
 export default function BookingFlow() {
   const searchParams = useSearchParams();
 
-  // Read URL query params
+  // Read URL query params with today's local defaults
+  const today = getTodayLocalDateString();
   const initialRoomSlug = searchParams.get("room") || sampleRooms[0].slug;
-  const initialCheckIn = searchParams.get("checkIn") || "";
-  const initialCheckOut = searchParams.get("checkOut") || "";
+  const initialCheckIn = searchParams.get("checkIn") || today;
+  const initialCheckOut =
+    searchParams.get("checkOut") || getDefaultCheckOutDate(initialCheckIn);
   const initialAdults = Number(searchParams.get("adults") || 2);
   const initialChildren = Number(searchParams.get("children") || 0);
 
-  const initialRoom =
-    sampleRooms.find((r) => r.slug === initialRoomSlug) || sampleRooms[0];
-
-  const [selectedRoom, setSelectedRoom] = useState<RoomDetail>(initialRoom);
+  const [rooms, setRooms] = useState<RoomDetail[]>(sampleRooms);
+  const [selectedRoom, setSelectedRoom] = useState<RoomDetail>(
+    () => sampleRooms.find((r) => r.slug === initialRoomSlug) || sampleRooms[0]
+  );
   const [params, setParams] = useState<AvailabilitySearchParams>({
     checkIn: initialCheckIn,
     checkOut: initialCheckOut,
     adults: initialAdults,
     children: initialChildren,
-    roomSlug: initialRoom.slug,
+    roomSlug: initialRoomSlug,
   });
 
   useEffect(() => {
-    if (!params.checkIn) {
-      const today = getTodayLocalDateString();
-      setParams((prev) => ({
-        ...prev,
-        checkIn: prev.checkIn || today,
-        checkOut: prev.checkOut || getDefaultCheckOutDate(today),
-      }));
-    }
-  }, [params.checkIn]);
+    let mounted = true;
+    getRooms()
+      .then((data) => {
+        if (mounted && data.length > 0) {
+          setRooms(data);
+          const found = data.find((r) => r.slug === initialRoomSlug) || data[0];
+          setSelectedRoom(found);
+        }
+      })
+      .catch((err) => {
+        console.warn("Could not fetch rooms from API:", err);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, [initialRoomSlug]);
 
   const [step, setStep] = useState<"form" | "review">("form");
   const [submissionState, setSubmissionState] =
@@ -124,7 +135,7 @@ export default function BookingFlow() {
       {step === "form" ? (
         <div className="grid gap-12 lg:grid-cols-[1.6fr_1fr] lg:gap-16">
           <BookingForm
-            rooms={sampleRooms}
+            rooms={rooms}
             selectedRoom={selectedRoom}
             onRoomChange={handleRoomChange}
             params={params}

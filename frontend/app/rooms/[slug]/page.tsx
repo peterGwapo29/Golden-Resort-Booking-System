@@ -6,7 +6,7 @@ import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import RoomGallery from "@/components/rooms/RoomGallery";
 import RoomDetailBookingBox from "@/components/rooms/RoomDetailBookingBox";
-import { getRoomBySlug, sampleRooms } from "@/data/rooms";
+import { getRoomBySlug as getApiRoomBySlug } from "@/lib/api";
 import {
   ArrowLeftIcon,
   BedIcon,
@@ -18,17 +18,13 @@ interface RoomDetailPageProps {
   params: Promise<{ slug: string }>;
 }
 
-export async function generateStaticParams() {
-  return sampleRooms.map((room) => ({
-    slug: room.slug,
-  }));
-}
+export const instant = false;
 
 export async function generateMetadata({
   params,
 }: RoomDetailPageProps): Promise<Metadata> {
   const { slug } = await params;
-  const room = getRoomBySlug(slug);
+  const room = await getApiRoomBySlug(slug);
 
   if (!room) {
     return {
@@ -44,7 +40,7 @@ export async function generateMetadata({
 
 export default async function RoomDetailPage({ params }: RoomDetailPageProps) {
   const { slug } = await params;
-  const room = getRoomBySlug(slug);
+  const room = await getApiRoomBySlug(slug);
 
   if (!room) {
     notFound();

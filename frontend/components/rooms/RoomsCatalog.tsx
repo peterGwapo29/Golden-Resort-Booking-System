@@ -1,12 +1,14 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import type { RoomCategory, AvailabilitySearchParams } from "@/types/booking";
+import type { RoomCategory, AvailabilitySearchParams, RoomDetail } from "@/types/booking";
 import { sampleRooms } from "@/data/rooms";
+import { getRooms } from "@/lib/api";
 import AvailabilitySearch from "@/components/booking/AvailabilitySearch";
 import RoomFilters from "@/components/rooms/RoomFilters";
 import RoomCard from "@/components/rooms/RoomCard";
+
 export default function RoomsCatalog() {
   const searchParams = useSearchParams();
 
@@ -19,6 +21,24 @@ export default function RoomsCatalog() {
 
   const [category, setCategory] = useState<RoomCategory>(initialCategory);
   const [minGuests, setMinGuests] = useState<number>(0);
+  const [rooms, setRooms] = useState<RoomDetail[]>(sampleRooms);
+
+  useEffect(() => {
+    let mounted = true;
+    getRooms()
+      .then((data) => {
+        if (mounted && data.length > 0) {
+          setRooms(data);
+        }
+      })
+      .catch((err) => {
+        console.warn("Could not load accommodations from API:", err);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   // Search parameters to pass along to room detail and booking links
   const queryStr = useMemo(() => {
@@ -32,7 +52,7 @@ export default function RoomsCatalog() {
 
   // Filter logic
   const filteredRooms = useMemo(() => {
-    return sampleRooms.filter((room) => {
+    return rooms.filter((room) => {
       // Category filter
       if (category !== "all" && room.category !== category) {
         return false;
@@ -43,7 +63,7 @@ export default function RoomsCatalog() {
       }
       return true;
     });
-  }, [category, minGuests]);
+  }, [rooms, category, minGuests]);
 
   const handleResetFilters = () => {
     setCategory("all");
@@ -72,7 +92,7 @@ export default function RoomsCatalog() {
           onCategoryChange={setCategory}
           minGuests={minGuests}
           onMinGuestsChange={setMinGuests}
-          totalCount={sampleRooms.length}
+          totalCount={rooms.length}
           filteredCount={filteredRooms.length}
           onReset={handleResetFilters}
         />

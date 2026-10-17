@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { RoomDetail } from "@/types/booking";
 import {
@@ -26,19 +26,14 @@ export default function RoomDetailBookingBox({
   room,
 }: RoomDetailBookingBoxProps) {
   const router = useRouter();
-  const [todayStr, setTodayStr] = useState<string>("");
-  const [checkIn, setCheckIn] = useState<string>("");
-  const [checkOut, setCheckOut] = useState<string>("");
+  const [todayStr] = useState<string>(() => getTodayLocalDateString());
+  const [checkIn, setCheckIn] = useState<string>(() => getTodayLocalDateString());
+  const [checkOut, setCheckOut] = useState<string>(() =>
+    getDefaultCheckOutDate(getTodayLocalDateString())
+  );
   const [adults, setAdults] = useState<number>(2);
   const [children, setChildren] = useState<number>(0);
   const [errors, setErrors] = useState<Record<string, string>>({});
-
-  useEffect(() => {
-    const today = getTodayLocalDateString();
-    setTodayStr(today);
-    setCheckIn((prev) => prev || today);
-    setCheckOut((prev) => prev || getDefaultCheckOutDate(today));
-  }, []);
 
   const nights = calculateNights(checkIn, checkOut);
   const calculation = calculateBookingPrice(room.sampleRatePhp, nights);

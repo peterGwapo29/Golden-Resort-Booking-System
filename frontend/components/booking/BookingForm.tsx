@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type {
   AvailabilitySearchParams,
   GuestInfo,
@@ -31,11 +31,7 @@ export default function BookingForm({
   onParamsChange,
   onContinue,
 }: BookingFormProps) {
-  const [todayStr, setTodayStr] = useState<string>("");
-
-  useEffect(() => {
-    setTodayStr(getTodayLocalDateString());
-  }, []);
+  const [todayStr] = useState<string>(() => getTodayLocalDateString());
 
   const [guest, setGuest] = useState<GuestInfo>({
     fullName: "",
