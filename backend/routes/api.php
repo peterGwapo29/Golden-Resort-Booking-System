@@ -20,16 +20,16 @@ use Illuminate\Support\Facades\Route;
 Route::prefix('v1')->group(function () {
     Route::get('/rooms', [RoomController::class, 'index']);
     Route::get('/rooms/{slug}', [RoomController::class, 'show']);
-    Route::get('/availability', AvailabilityController::class);
-    Route::post('/reservations', [ReservationController::class, 'store']);
+    Route::get('/availability', AvailabilityController::class)->middleware('throttle:30,1');
+    Route::post('/reservations', [ReservationController::class, 'store'])->middleware('throttle:10,1');
     Route::get('/reservations/{reference}', [ReservationController::class, 'show']);
 });
 
 // Root API endpoints without v1 prefix for direct frontend compatibility
 Route::get('/rooms', [RoomController::class, 'index']);
 Route::get('/rooms/{slug}', [RoomController::class, 'show']);
-Route::get('/availability', AvailabilityController::class);
-Route::post('/reservations', [ReservationController::class, 'store']);
+Route::get('/availability', AvailabilityController::class)->middleware('throttle:30,1');
+Route::post('/reservations', [ReservationController::class, 'store'])->middleware('throttle:10,1');
 Route::get('/reservations/{reference}', [ReservationController::class, 'show']);
 
 /*

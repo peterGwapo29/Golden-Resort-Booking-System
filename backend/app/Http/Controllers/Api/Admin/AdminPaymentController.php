@@ -11,6 +11,7 @@ use App\Models\Payment;
 use App\Models\Refund;
 use App\Models\Reservation;
 use App\Services\FinancialCalculationService;
+use App\Services\SecurityAuditLogger;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -145,6 +146,14 @@ class AdminPaymentController extends Controller
             ]);
         });
 
+        SecurityAuditLogger::log('payment.created', 'Payment recorded', [
+            'payment_id' => $payment->id,
+            'payment_reference' => $payment->payment_reference,
+            'reservation_id' => $payment->reservation_id,
+            'amount' => (float) $payment->amount,
+            'status' => $payment->status,
+        ]);
+
         $payment->load(['reservation', 'recordedBy']);
 
         return response()->json([
@@ -178,6 +187,26 @@ class AdminPaymentController extends Controller
         $newStatus = $validated['status'];
         $oldStatus = $payment->status;
 
+        // Prevent tampering with payments that have active or completed refunds
+        if (in_array($oldStatus, ['refunded', 'partially_refunded'], true) || $payment->completedRefundsTotal() > 0) {
+            return response()->json([
+                'message' => "Cannot directly modify the status of a {$oldStatus} payment with refund history.",
+                'errors' => [
+                    'status' => ['Payments with completed refunds cannot have their status altered directly.'],
+                ],
+            ], 422);
+        }
+
+        // Terminal failed/cancelled payments cannot transition arbitrarily to refunded without payment
+        if (in_array($oldStatus, ['failed', 'cancelled'], true) && in_array($newStatus, ['refunded', 'partially_refunded'], true)) {
+            return response()->json([
+                'message' => "Cannot refund a payment with {$oldStatus} status.",
+                'errors' => [
+                    'status' => ['Only completed payments can be refunded.'],
+                ],
+            ], 422);
+        }
+
         // If transitioning to completed, re-verify remaining balance to prevent accidental overpayment
         if ($newStatus === 'completed' && $oldStatus !== 'completed') {
             $reservation = $payment->reservation;
@@ -207,6 +236,13 @@ class AdminPaymentController extends Controller
             $payment->status = $newStatus;
             $payment->save();
         });
+
+        SecurityAuditLogger::log('payment.status_updated', "Payment status updated from {$oldStatus} to {$newStatus}", [
+            'payment_id' => $payment->id,
+            'payment_reference' => $payment->payment_reference,
+            'old_status' => $oldStatus,
+            'new_status' => $newStatus,
+        ]);
 
         $payment->load(['reservation', 'recordedBy', 'refunds']);
 
@@ -318,6 +354,15 @@ class AdminPaymentController extends Controller
         $refund = $result['refund'];
         /** @var Payment $payment */
         $payment = $result['payment'];
+
+        SecurityAuditLogger::log('refund.created', 'Refund issued', [
+            'refund_id' => $refund->id,
+            'refund_reference' => $refund->refund_reference,
+            'payment_id' => $payment->id,
+            'amount' => (float) $refund->amount,
+            'status' => $refund->status,
+            'reason' => $refund->reason,
+        ]);
 
         $refund->load(['requestedBy', 'approvedBy']);
         $reservationSummary = $this->financialService->reservationSummary($payment->reservation);
@@ -455,6 +500,16 @@ class AdminPaymentController extends Controller
         $newStatus = $validated['status'];
         $oldStatus = $refund->status;
 
+        // Completed refunds cannot be reopened or reversed
+        if ($oldStatus === 'completed' && $newStatus !== 'completed') {
+            return response()->json([
+                'message' => 'Completed refunds cannot be reopened or reversed.',
+                'errors' => [
+                    'status' => ['A completed refund has already disbursed funds and cannot change status.'],
+                ],
+            ], 422);
+        }
+
         // If transitioning to completed, verify that the payment can still support this refund amount
         if ($newStatus === 'completed' && $oldStatus !== 'completed') {
             $payment = $refund->payment;
@@ -491,6 +546,14 @@ class AdminPaymentController extends Controller
             $refund->status = $newStatus;
             $refund->save();
         });
+
+        SecurityAuditLogger::log('refund.status_updated', "Refund status updated from {$oldStatus} to {$newStatus}", [
+            'refund_id' => $refund->id,
+            'refund_reference' => $refund->refund_reference,
+            'old_status' => $oldStatus,
+            'new_status' => $newStatus,
+            'amount' => (float) $refund->amount,
+        ]);
 
         $refund->load(['requestedBy', 'approvedBy', 'payment.reservation']);
         $metrics = $this->financialService->dashboardMetrics();

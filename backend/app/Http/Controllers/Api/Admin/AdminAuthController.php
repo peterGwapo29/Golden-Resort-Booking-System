@@ -20,18 +20,32 @@ class AdminAuthController extends Controller
         $user = User::query()->where('email', $request->input('email'))->first();
 
         if (! $user || ! Hash::check($request->input('password'), $user->password)) {
+            \App\Services\SecurityAuditLogger::log('auth.login.failed', 'Admin login failed', [
+                'email' => $request->input('email'),
+            ]);
+
             throw ValidationException::withMessages([
                 'email' => ['The provided credentials do not match our records.'],
             ]);
         }
 
         if (! $user->isAdmin()) {
+            \App\Services\SecurityAuditLogger::log('auth.login.forbidden', 'Non-admin user attempted admin login', [
+                'email' => $user->email,
+                'role' => $user->role,
+            ]);
+
             return response()->json([
                 'message' => 'Access denied. You do not have administrator permissions.',
             ], 403);
         }
 
         $token = $user->createToken('admin-token', ['admin'])->plainTextToken;
+
+        \App\Services\SecurityAuditLogger::log('auth.login.success', 'Admin login successful', [
+            'email' => $user->email,
+            'user_id' => $user->id,
+        ]);
 
         return response()->json([
             'message' => 'Authentication successful.',
@@ -50,7 +64,12 @@ class AdminAuthController extends Controller
      */
     public function logout(Request $request): JsonResponse
     {
+        $userId = $request->user()?->id;
         $request->user()->currentAccessToken()?->delete();
+
+        \App\Services\SecurityAuditLogger::log('auth.logout', 'Admin logged out', [
+            'user_id' => $userId,
+        ]);
 
         return response()->json([
             'message' => 'Successfully logged out.',
