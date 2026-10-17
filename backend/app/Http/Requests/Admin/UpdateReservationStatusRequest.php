@@ -23,7 +23,7 @@ class UpdateReservationStatusRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'status' => ['required', 'string', 'in:pending,confirmed,cancelled,completed'],
+            'status' => ['required', 'string', 'in:pending,confirmed,checked_in,completed,cancelled,no_show'],
             'notes' => ['nullable', 'string', 'max:500'],
         ];
     }

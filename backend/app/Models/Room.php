@@ -35,6 +35,10 @@ class Room extends Model
         'featured_image',
         'gallery',
         'is_active',
+        'housekeeping_status',
+        'last_cleaned_at',
+        'last_inspected_at',
+        'housekeeping_notes',
     ];
 
     /**
@@ -56,15 +60,18 @@ class Room extends Model
             'featured_image' => 'array',
             'gallery' => 'array',
             'is_active' => 'boolean',
+            'last_cleaned_at' => 'datetime',
+            'last_inspected_at' => 'datetime',
         ];
     }
 
     /**
-     * Scope a query to only include active rooms.
+     * Scope a query to only include active rooms that are not under maintenance.
      */
     public function scopeActive(Builder $query): Builder
     {
-        return $query->where('is_active', true);
+        return $query->where('is_active', true)
+            ->where('housekeeping_status', '!=', 'maintenance');
     }
 
     /**
@@ -73,5 +80,29 @@ class Room extends Model
     public function reservations(): HasMany
     {
         return $this->hasMany(Reservation::class);
+    }
+
+    /**
+     * Get housekeeping tasks for this room.
+     */
+    public function housekeepingTasks(): HasMany
+    {
+        return $this->hasMany(HousekeepingTask::class);
+    }
+
+    /**
+     * Determine if room is certified ready for guest check-in.
+     */
+    public function getIsReadyForGuestAttribute(): bool
+    {
+        return $this->housekeeping_status === 'inspected';
+    }
+
+    /**
+     * Determine if room is currently under maintenance.
+     */
+    public function getIsUnderMaintenanceAttribute(): bool
+    {
+        return $this->housekeeping_status === 'maintenance';
     }
 }

@@ -7,6 +7,9 @@ import { AdminAuthProvider, useAdminAuth } from "@/lib/admin-auth";
 import {
   DashboardIcon,
   DoorIcon,
+  CalendarIcon,
+  SparklesIcon,
+  KeyIcon,
   ClipboardListIcon,
   UserCheckIcon,
   CreditCardIcon,
@@ -34,8 +37,11 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
   }
 
   const navLinks = [
-    { label: "Dashboard", href: "/admin", icon: DashboardIcon },
+    { label: "Dashboard & Analytics", href: "/admin", icon: DashboardIcon },
     { label: "Accommodations", href: "/admin/rooms", icon: DoorIcon },
+    { label: "Availability Calendar", href: "/admin/calendar", icon: CalendarIcon },
+    { label: "Housekeeping", href: "/admin/housekeeping", icon: SparklesIcon },
+    { label: "Front Desk (Check-In)", href: "/admin/check-in-out", icon: KeyIcon },
     { label: "Reservations", href: "/admin/reservations", icon: ClipboardListIcon },
     { label: "Customers", href: "/admin/customers", icon: UserCheckIcon },
     { label: "Payments", href: "/admin/payments", icon: CreditCardIcon },

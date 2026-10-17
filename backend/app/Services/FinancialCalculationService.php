@@ -120,7 +120,7 @@ class FinancialCalculationService
     public function totalOutstandingBalances(): float
     {
         $reservations = Reservation::query()
-            ->whereIn('status', ['pending', 'confirmed', 'completed'])
+            ->whereIn('status', ['pending', 'confirmed', 'checked_in', 'completed'])
             ->get(['id', 'total_price_php']);
 
         $totalOutstanding = 0.0;

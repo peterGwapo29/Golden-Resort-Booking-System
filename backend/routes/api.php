@@ -1,8 +1,12 @@
 <?php
 
+use App\Http\Controllers\Api\Admin\AdminAnalyticsController;
 use App\Http\Controllers\Api\Admin\AdminAuthController;
+use App\Http\Controllers\Api\Admin\AdminCalendarController;
+use App\Http\Controllers\Api\Admin\AdminCheckInOutController;
 use App\Http\Controllers\Api\Admin\AdminCustomerController;
 use App\Http\Controllers\Api\Admin\AdminDashboardController;
+use App\Http\Controllers\Api\Admin\AdminHousekeepingController;
 use App\Http\Controllers\Api\Admin\AdminPaymentController;
 use App\Http\Controllers\Api\Admin\AdminReservationController;
 use App\Http\Controllers\Api\Admin\AdminRoomController;
@@ -46,6 +50,8 @@ Route::prefix('admin')->group(function () {
         Route::post('/logout', [AdminAuthController::class, 'logout']);
         Route::get('/me', [AdminAuthController::class, 'me']);
         Route::get('/dashboard/stats', [AdminDashboardController::class, 'stats']);
+        Route::get('/analytics', [AdminAnalyticsController::class, 'index']);
+        Route::get('/analytics/export', [AdminAnalyticsController::class, 'exportCsv']);
 
         // Accommodations management
         Route::get('/rooms', [AdminRoomController::class, 'index']);
@@ -55,6 +61,23 @@ Route::prefix('admin')->group(function () {
         Route::post('/rooms/{id}', [AdminRoomController::class, 'update']);
         Route::patch('/rooms/{id}/toggle-active', [AdminRoomController::class, 'toggleActive']);
         Route::delete('/rooms/{id}', [AdminRoomController::class, 'destroy']);
+
+        // Room availability calendar & schedule
+        Route::get('/calendar/schedule', [AdminCalendarController::class, 'schedule']);
+        Route::get('/calendar/quick-check', [AdminCalendarController::class, 'quickCheck']);
+
+        // Housekeeping & maintenance operations
+        Route::get('/housekeeping/rooms', [AdminHousekeepingController::class, 'rooms']);
+        Route::patch('/housekeeping/rooms/{id}/status', [AdminHousekeepingController::class, 'updateRoomStatus']);
+        Route::get('/housekeeping/tasks', [AdminHousekeepingController::class, 'tasks']);
+        Route::post('/housekeeping/tasks', [AdminHousekeepingController::class, 'storeTask']);
+        Route::patch('/housekeeping/tasks/{id}/status', [AdminHousekeepingController::class, 'updateTaskStatus']);
+        Route::get('/housekeeping/staff', [AdminHousekeepingController::class, 'staff']);
+
+        // Front desk check-in and check-out management
+        Route::get('/check-in-out/overview', [AdminCheckInOutController::class, 'overview']);
+        Route::post('/check-in-out/{id}/check-in', [AdminCheckInOutController::class, 'checkIn']);
+        Route::post('/check-in-out/{id}/check-out', [AdminCheckInOutController::class, 'checkOut']);
 
         // Reservation management & status transitions
         Route::get('/reservations', [AdminReservationController::class, 'index']);
