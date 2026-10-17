@@ -146,3 +146,116 @@ export function InfoIcon(props: IconProps) {
   );
 }
 
+export function DashboardIcon(props: IconProps) {
+  return (
+    <BaseIcon {...props}>
+      <rect x="3" y="3" width="7" height="9" rx="1" />
+      <rect x="14" y="3" width="7" height="5" rx="1" />
+      <rect x="14" y="12" width="7" height="9" rx="1" />
+      <rect x="3" y="16" width="7" height="5" rx="1" />
+    </BaseIcon>
+  );
+}
+
+export function DoorIcon(props: IconProps) {
+  return (
+    <BaseIcon {...props}>
+      <path d="M4 21h16M6 21V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v16M14 12v.01" />
+    </BaseIcon>
+  );
+}
+
+export function ClipboardListIcon(props: IconProps) {
+  return (
+    <BaseIcon {...props}>
+      <rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
+      <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
+      <path d="M9 12h6M9 16h6" />
+    </BaseIcon>
+  );
+}
+
+export function CreditCardIcon(props: IconProps) {
+  return (
+    <BaseIcon {...props}>
+      <rect x="2" y="5" width="20" height="14" rx="2" />
+      <line x1="2" y1="10" x2="22" y2="10" />
+    </BaseIcon>
+  );
+}
+
+export function UserCheckIcon(props: IconProps) {
+  return (
+    <BaseIcon {...props}>
+      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+      <circle cx="9" cy="7" r="4" />
+      <polyline points="16 11 18 13 22 9" />
+    </BaseIcon>
+  );
+}
+
+export function SearchIcon(props: IconProps) {
+  return (
+    <BaseIcon {...props}>
+      <circle cx="11" cy="11" r="8" />
+      <line x1="21" y1="21" x2="16.65" y2="16.65" />
+    </BaseIcon>
+  );
+}
+
+export function FilterIcon(props: IconProps) {
+  return (
+    <BaseIcon {...props}>
+      <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
+    </BaseIcon>
+  );
+}
+
+export function PlusIcon(props: IconProps) {
+  return (
+    <BaseIcon {...props}>
+      <line x1="12" y1="5" x2="12" y2="19" />
+      <line x1="5" y1="12" x2="19" y2="12" />
+    </BaseIcon>
+  );
+}
+
+export function LogoutIcon(props: IconProps) {
+  return (
+    <BaseIcon {...props}>
+      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+      <polyline points="16 17 21 12 16 7" />
+      <line x1="21" y1="12" x2="9" y2="12" />
+    </BaseIcon>
+  );
+}
+
+export function EditIcon(props: IconProps) {
+  return (
+    <BaseIcon {...props}>
+      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+    </BaseIcon>
+  );
+}
+
+export function TrashIcon(props: IconProps) {
+  return (
+    <BaseIcon {...props}>
+      <polyline points="3 6 5 6 21 6" />
+      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+    </BaseIcon>
+  );
+}
+
+export function RefreshIcon(props: IconProps) {
+  return (
+    <BaseIcon {...props}>
+      <polyline points="23 4 23 10 17 10" />
+      <polyline points="1 20 1 14 7 14" />
+      <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+    </BaseIcon>
+  );
+}
+
+

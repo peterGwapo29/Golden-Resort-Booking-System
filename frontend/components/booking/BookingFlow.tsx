@@ -53,6 +53,9 @@ export default function BookingFlow() {
           setRooms(data);
           const found = data.find((r) => r.slug === initialRoomSlug) || data[0];
           setSelectedRoom(found);
+          if (found && found.slug !== initialRoomSlug) {
+            setParams((prev) => ({ ...prev, roomSlug: found.slug }));
+          }
         }
       })
       .catch((err) => {

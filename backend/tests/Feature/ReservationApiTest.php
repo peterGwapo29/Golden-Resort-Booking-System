@@ -263,3 +263,44 @@ test('can retrieve reservation with matching email and cannot with incorrect ema
     $this->getJson("/api/reservations/{$ref}")
         ->assertStatus(422);
 });
+
+test('cannot create reservation for an inactive accommodation', function () {
+    Room::create([
+        'slug' => 'deactivated-cottage',
+        'name' => 'Deactivated Cottage',
+        'category' => 'room',
+        'tagline' => 'Inactive',
+        'description' => 'Inactive description',
+        'long_description' => ['Paragraph 1'],
+        'nightly_rate_php' => 4500.00,
+        'total_inventory' => 2,
+        'max_guests' => 2,
+        'adults_capacity' => 2,
+        'children_capacity' => 0,
+        'bed_configuration' => '1 Bed',
+        'size_sqm' => 35,
+        'view' => 'Garden',
+        'amenities' => [],
+        'featured_image' => ['src' => 'https://example.com/img.jpg', 'alt' => 'test', 'source' => 'https://example.com'],
+        'gallery' => [],
+        'is_active' => false,
+    ]);
+
+    $checkIn = Carbon::tomorrow()->format('Y-m-d');
+    $checkOut = Carbon::tomorrow()->addDays(2)->format('Y-m-d');
+
+    $payload = [
+        'room_slug' => 'deactivated-cottage',
+        'check_in' => $checkIn,
+        'check_out' => $checkOut,
+        'adults' => 2,
+        'guest_full_name' => 'Test User',
+        'guest_email' => 'test@example.com',
+        'guest_phone' => '+63 917 111 2222',
+    ];
+
+    $response = $this->postJson('/api/reservations', $payload);
+
+    $response->assertStatus(422)
+        ->assertJsonValidationErrors(['room_slug']);
+});

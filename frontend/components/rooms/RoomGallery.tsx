@@ -16,6 +16,8 @@ export default function RoomGallery({ images, roomName }: RoomGalleryProps) {
     return null;
   }
 
+  const fallbackSrc =
+    "https://images.unsplash.com/photo-1611892440504-42a792e24d32?auto=format&fit=crop&w=1400&q=80";
   const activeImage = images[activeIndex] || images[0];
 
   return (
@@ -23,10 +25,18 @@ export default function RoomGallery({ images, roomName }: RoomGalleryProps) {
       {/* Featured Primary Image */}
       <div className="relative aspect-[16/10] overflow-hidden rounded-2xl bg-forest/10 shadow-md">
         <Image
-          src={activeImage.src}
-          alt={activeImage.alt}
+          src={activeImage.src || fallbackSrc}
+          alt={activeImage.alt || roomName}
           fill
           priority
+          unoptimized
+          onError={(e) => {
+            const target = e.currentTarget as HTMLImageElement;
+            if (!target.dataset.failed) {
+              target.dataset.failed = "true";
+              target.src = fallbackSrc;
+            }
+          }}
           sizes="(min-width: 1024px) 60vw, 100vw"
           className="object-cover transition-opacity duration-300"
         />
@@ -46,7 +56,7 @@ export default function RoomGallery({ images, roomName }: RoomGalleryProps) {
             const isActive = idx === activeIndex;
             return (
               <button
-                key={img.src}
+                key={`${img.src}-${idx}`}
                 type="button"
                 onClick={() => setActiveIndex(idx)}
                 aria-label={`View photo ${idx + 1} of ${roomName}`}
@@ -58,9 +68,17 @@ export default function RoomGallery({ images, roomName }: RoomGalleryProps) {
                 }`}
               >
                 <Image
-                  src={img.src}
-                  alt={img.alt}
+                  src={img.src || fallbackSrc}
+                  alt={img.alt || `${roomName} photo ${idx + 1}`}
                   fill
+                  unoptimized
+                  onError={(e) => {
+                    const target = e.currentTarget as HTMLImageElement;
+                    if (!target.dataset.failed) {
+                      target.dataset.failed = "true";
+                      target.src = fallbackSrc;
+                    }
+                  }}
                   sizes="120px"
                   className="object-cover"
                 />

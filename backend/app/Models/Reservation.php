@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Reservation extends Model
 {
@@ -69,6 +70,38 @@ class Reservation extends Model
     public function guest(): BelongsTo
     {
         return $this->belongsTo(Guest::class);
+    }
+
+    /**
+     * Get payments recorded for this reservation.
+     */
+    public function payments(): HasMany
+    {
+        return $this->hasMany(Payment::class);
+    }
+
+    /**
+     * Get refunds recorded for this reservation.
+     */
+    public function refunds(): HasMany
+    {
+        return $this->hasMany(Refund::class);
+    }
+
+    /**
+     * Calculate total verified net paid amount applied to this reservation.
+     */
+    public function totalPaid(): float
+    {
+        return app(\App\Services\FinancialCalculationService::class)->netCollections($this->id);
+    }
+
+    /**
+     * Determine standardized payment status: 'paid', 'partially_paid', or 'unpaid'.
+     */
+    public function paymentStatus(): string
+    {
+        return app(\App\Services\FinancialCalculationService::class)->paymentStatus($this);
     }
 
     /**

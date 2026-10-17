@@ -12,8 +12,14 @@
   --color-ink: #343a35;
   --color-muted: #777d76;
 
-  --font-sans: var(--font-jost), ui-sans-serif, system-ui, sans-serif;
-  --font-serif: var(--font-cormorant), ui-serif, Georgia, serif;
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-serif: var(--font-lora), ui-serif, Georgia, serif;
+}
+
+@layer utilities {
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
 }
 
 @layer base {
@@ -50,3 +56,133 @@
     }
   }
 }
+
+/* ==========================================================================
+   Golden Resort DataTables.js Theme Integration
+   ========================================================================== */
+.golden-datatable-wrapper .dt-container {
+  font-family: inherit;
+  color: var(--color-ink);
+  padding: 0.5rem 0;
+}
+
+.golden-datatable-wrapper .dt-layout-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+}
+
+.golden-datatable-wrapper .dt-search label {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--color-muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.golden-datatable-wrapper .dt-search input {
+  background-color: var(--color-ivory);
+  border: 1px solid #cbd5e1;
+  border-radius: 0.5rem;
+  padding: 0.4rem 0.75rem;
+  font-size: 0.8125rem;
+  color: var(--color-ink);
+  outline: none;
+  transition: all 0.2s ease;
+}
+
+.golden-datatable-wrapper .dt-search input:focus {
+  border-color: var(--color-gold);
+  box-shadow: 0 0 0 2px rgba(198, 166, 107, 0.25);
+  background-color: #ffffff;
+}
+
+.golden-datatable-wrapper .dt-length label {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--color-muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.golden-datatable-wrapper .dt-length select {
+  background-color: var(--color-ivory);
+  border: 1px solid #cbd5e1;
+  border-radius: 0.5rem;
+  padding: 0.35rem 0.6rem;
+  font-size: 0.8125rem;
+  color: var(--color-ink);
+  outline: none;
+  margin: 0 0.25rem;
+}
+
+.golden-datatable-wrapper .dt-length select:focus {
+  border-color: var(--color-gold);
+}
+
+.golden-datatable-wrapper .dt-info {
+  font-size: 0.75rem;
+  color: var(--color-muted);
+  font-weight: 500;
+}
+
+.golden-datatable-wrapper .dt-paging .dt-paging-button {
+  border-radius: 0.5rem !important;
+  font-size: 0.75rem !important;
+  padding: 0.3rem 0.7rem !important;
+  margin: 0 0.15rem !important;
+  border: 1px solid #e2e8f0 !important;
+  background: #ffffff !important;
+  color: var(--color-ink) !important;
+  transition: all 0.15s ease !important;
+}
+
+.golden-datatable-wrapper .dt-paging .dt-paging-button.current,
+.golden-datatable-wrapper .dt-paging .dt-paging-button:hover {
+  background: var(--color-forest) !important;
+  color: var(--color-gold) !important;
+  border-color: var(--color-forest) !important;
+  font-weight: 600 !important;
+}
+
+.golden-datatable-wrapper .dt-paging .dt-paging-button.disabled {
+  opacity: 0.4 !important;
+  cursor: not-allowed !important;
+  background: #f8fafc !important;
+  color: #94a3b8 !important;
+}
+
+.golden-datatable-wrapper table.dataTable {
+  border-collapse: collapse !important;
+  width: 100% !important;
+  margin-top: 0.5rem !important;
+  margin-bottom: 0.5rem !important;
+}
+
+.golden-datatable-wrapper table.dataTable thead th {
+  background-color: #f8f6f0 !important;
+  color: var(--color-forest) !important;
+  font-family: var(--font-serif) !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.05em !important;
+  font-size: 0.75rem !important;
+  font-weight: 600 !important;
+  padding: 0.75rem 1rem !important;
+  border-bottom: 1px solid #e2e8f0 !important;
+}
+
+.golden-datatable-wrapper table.dataTable tbody td {
+  padding: 0.875rem 1rem !important;
+  border-bottom: 1px solid #f1f5f9 !important;
+  vertical-align: middle !important;
+}
+
+.golden-datatable-wrapper table.dataTable tbody tr:hover {
+  background-color: rgba(248, 245, 239, 0.6) !important;
+}
+

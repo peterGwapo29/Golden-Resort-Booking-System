@@ -5,6 +5,7 @@ namespace App\Http\Requests;
 use App\Models\Room;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
 
 class CreateReservationRequest extends FormRequest
@@ -25,7 +26,7 @@ class CreateReservationRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'room_slug' => ['required', 'string', 'exists:rooms,slug'],
+            'room_slug' => ['required', 'string', Rule::exists('rooms', 'slug')->where('is_active', true)],
             'check_in' => ['required', 'date_format:Y-m-d', 'after_or_equal:today'],
             'check_out' => ['required', 'date_format:Y-m-d', 'after:check_in'],
             'adults' => ['required', 'integer', 'min:1', 'max:10'],
@@ -70,7 +71,7 @@ class CreateReservationRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'room_slug.exists' => 'The selected room is invalid or unavailable.',
+            'room_slug.exists' => 'The selected accommodation is currently inactive or unavailable for booking.',
             'check_in.after_or_equal' => 'Check-in date cannot be in the past.',
             'check_out.after' => 'Check-out date must be at least one day after check-in.',
             'guest_full_name.required' => 'Full name is required.',

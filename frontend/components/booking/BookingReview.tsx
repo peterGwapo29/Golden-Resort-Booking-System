@@ -234,9 +234,26 @@ export default function BookingReview({
         <div className="mt-6 flex flex-col gap-5 sm:flex-row sm:items-center">
           <div className="relative h-28 w-full shrink-0 overflow-hidden rounded-xl sm:h-24 sm:w-36">
             <Image
-              src={room.featuredImage.src}
-              alt={room.featuredImage.alt}
+              src={
+                room.featuredImage?.src ||
+                (room as any).featured_image?.src ||
+                (room as any).image_url ||
+                "https://images.unsplash.com/photo-1611892440504-42a792e24d32?auto=format&fit=crop&w=1400&q=80"
+              }
+              alt={
+                room.featuredImage?.alt ||
+                (room as any).featured_image?.alt ||
+                room.name
+              }
               fill
+              unoptimized
+              onError={(e) => {
+                const target = e.currentTarget as HTMLImageElement;
+                if (!target.dataset.failed) {
+                  target.dataset.failed = "true";
+                  target.src = "https://images.unsplash.com/photo-1611892440504-42a792e24d32?auto=format&fit=crop&w=1400&q=80";
+                }
+              }}
               sizes="(min-width: 640px) 144px, 100vw"
               className="object-cover"
             />

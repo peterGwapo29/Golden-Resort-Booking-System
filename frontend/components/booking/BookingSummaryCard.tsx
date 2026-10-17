@@ -30,9 +30,26 @@ export default function BookingSummaryCard({
       <div className="mt-4 flex gap-4 border-b border-forest/10 pb-5">
         <div className="relative h-20 w-24 shrink-0 overflow-hidden rounded-lg bg-forest/10">
           <Image
-            src={room.featuredImage.src}
-            alt={room.featuredImage.alt}
+            src={
+              room.featuredImage?.src ||
+              (room as any).featured_image?.src ||
+              (room as any).image_url ||
+              "https://images.unsplash.com/photo-1611892440504-42a792e24d32?auto=format&fit=crop&w=1400&q=80"
+            }
+            alt={
+              room.featuredImage?.alt ||
+              (room as any).featured_image?.alt ||
+              room.name
+            }
             fill
+            unoptimized
+            onError={(e) => {
+              const target = e.currentTarget as HTMLImageElement;
+              if (!target.dataset.failed) {
+                target.dataset.failed = "true";
+                target.src = "https://images.unsplash.com/photo-1611892440504-42a792e24d32?auto=format&fit=crop&w=1400&q=80";
+              }
+            }}
             sizes="96px"
             className="object-cover"
           />

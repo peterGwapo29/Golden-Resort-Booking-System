@@ -91,3 +91,30 @@ test('returns 404 for non existent room', function () {
 
     $response->assertStatus(404);
 });
+
+test('returns 404 for inactive room on public detail endpoint', function () {
+    Room::create([
+        'slug' => 'deactivated-suite',
+        'name' => 'Deactivated Suite',
+        'category' => 'suite',
+        'tagline' => 'Inactive suite',
+        'description' => 'Inactive',
+        'long_description' => ['Inactive'],
+        'nightly_rate_php' => 8000.00,
+        'total_inventory' => 1,
+        'max_guests' => 2,
+        'adults_capacity' => 2,
+        'children_capacity' => 0,
+        'bed_configuration' => '1 Bed',
+        'size_sqm' => 50,
+        'view' => 'Garden',
+        'amenities' => [],
+        'featured_image' => ['src' => 'https://example.com/img.jpg', 'alt' => 'test', 'source' => 'https://example.com'],
+        'gallery' => [],
+        'is_active' => false,
+    ]);
+
+    $response = $this->getJson('/api/rooms/deactivated-suite');
+
+    $response->assertStatus(404);
+});

@@ -26,10 +26,13 @@ class ReservationController extends Controller
         $reservation = DB::transaction(function () use ($validated) {
             // Lock room record for update to serialize availability checks for this accommodation
             $room = Room::query()
-                ->active()
                 ->where('slug', $validated['room_slug'])
                 ->lockForUpdate()
-                ->firstOrFail();
+                ->first();
+
+            if (! $room || ! $room->is_active) {
+                abort(422, 'The selected accommodation is currently inactive or unavailable for booking.');
+            }
 
             $checkIn = Carbon::parse($validated['check_in']);
             $checkOut = Carbon::parse($validated['check_out']);

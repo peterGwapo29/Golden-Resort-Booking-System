@@ -24,14 +24,34 @@ export default function RoomCard({ room, searchQuery = "" }: RoomCardProps) {
     villa: "Pool Villa",
   };
 
+  const fallbackSrc =
+    "https://images.unsplash.com/photo-1611892440504-42a792e24d32?auto=format&fit=crop&w=1400&q=80";
+  const imageSrc =
+    room.featuredImage?.src ||
+    (room as any).featured_image?.src ||
+    (room as any).image_url ||
+    fallbackSrc;
+  const imageAlt =
+    room.featuredImage?.alt ||
+    (room as any).featured_image?.alt ||
+    room.name;
+
   return (
     <article className="group flex h-full flex-col overflow-hidden rounded-xl border border-forest/10 bg-white shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl">
       {/* Featured Photo */}
       <div className="relative aspect-[16/10] overflow-hidden bg-forest/10">
         <Image
-          src={room.featuredImage.src}
-          alt={room.featuredImage.alt}
+          src={imageSrc}
+          alt={imageAlt}
           fill
+          unoptimized
+          onError={(e) => {
+            const target = e.currentTarget as HTMLImageElement;
+            if (!target.dataset.failed) {
+              target.dataset.failed = "true";
+              target.src = fallbackSrc;
+            }
+          }}
           sizes="(min-width: 1024px) 33vw, (min-width: 768px) 50vw, 100vw"
           className="object-cover transition-transform duration-700 group-hover:scale-105"
         />

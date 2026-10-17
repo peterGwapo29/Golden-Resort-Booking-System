@@ -15,8 +15,21 @@ class ReservationResource extends JsonResource
     public function toArray(Request $request): array
     {
         return [
+            'id' => $this->id,
             'booking_reference' => $this->booking_reference,
             'status' => $this->status,
+            'check_in' => $this->check_in instanceof \DateTimeInterface ? $this->check_in->format('Y-m-d') : (string) $this->check_in,
+            'check_out' => $this->check_out instanceof \DateTimeInterface ? $this->check_out->format('Y-m-d') : (string) $this->check_out,
+            'nights' => (int) $this->nights,
+            'adults' => (int) $this->adults,
+            'children' => (int) $this->children,
+            'total_guests' => (int) $this->total_guests,
+            'nightly_rate_php' => (float) $this->nightly_rate_php,
+            'total_price_php' => (float) $this->total_price_php,
+            'currency' => $this->currency ?? 'PHP',
+            'guest_name_snapshot' => $this->guest_name_snapshot ?? $this->guest?->full_name,
+            'guest_email_snapshot' => $this->guest_email_snapshot ?? $this->guest?->email,
+            'guest_phone_snapshot' => $this->guest_phone_snapshot ?? $this->guest?->phone,
             'room' => [
                 'id' => $this->room?->id ?? $this->room_id,
                 'slug' => $this->room?->slug,

@@ -27,7 +27,7 @@ export default function RoomsCatalog() {
     let mounted = true;
     getRooms()
       .then((data) => {
-        if (mounted && data.length > 0) {
+        if (mounted) {
           setRooms(data);
         }
       })
