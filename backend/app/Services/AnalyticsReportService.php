@@ -7,6 +7,7 @@ use App\Models\Refund;
 use App\Models\Reservation;
 use App\Models\Room;
 use Carbon\Carbon;
+use Carbon\CarbonInterface;
 use Carbon\CarbonPeriod;
 
 class AnalyticsReportService
@@ -119,10 +120,10 @@ class AnalyticsReportService
             $occupiedUnits = 0;
             foreach ($stayReservations as $res) {
                 if (in_array($res->status, ['confirmed', 'checked_in', 'completed'])) {
-                    $checkInStr = $res->check_in instanceof \Carbon\CarbonInterface
+                    $checkInStr = $res->check_in instanceof CarbonInterface
                         ? $res->check_in->format('Y-m-d')
                         : (string) $res->check_in;
-                    $checkOutStr = $res->check_out instanceof \Carbon\CarbonInterface
+                    $checkOutStr = $res->check_out instanceof CarbonInterface
                         ? $res->check_out->format('Y-m-d')
                         : (string) $res->check_out;
 
@@ -146,9 +147,9 @@ class AnalyticsReportService
             ];
 
             // Weekly rollup accumulator
-            if (!isset($weeklyAggregates[$weekKey])) {
+            if (! isset($weeklyAggregates[$weekKey])) {
                 $weeklyAggregates[$weekKey] = [
-                    'week_label' => 'Week ' . $date->format('W') . ' (' . $date->format('M Y') . ')',
+                    'week_label' => 'Week '.$date->format('W').' ('.$date->format('M Y').')',
                     'occupied_nights' => 0,
                     'available_nights' => 0,
                 ];
@@ -157,7 +158,7 @@ class AnalyticsReportService
             $weeklyAggregates[$weekKey]['available_nights'] += $totalDailyCapacity;
 
             // Monthly rollup accumulator
-            if (!isset($monthlyAggregates[$monthKey])) {
+            if (! isset($monthlyAggregates[$monthKey])) {
                 $monthlyAggregates[$monthKey] = [
                     'month_label' => $date->format('F Y'),
                     'occupied_nights' => 0,
@@ -288,6 +289,7 @@ class AnalyticsReportService
             if ($b['revenue_php'] === $a['revenue_php']) {
                 return $b['bookings_count'] <=> $a['bookings_count'];
             }
+
             return $b['revenue_php'] <=> $a['revenue_php'];
         });
 
@@ -341,12 +343,12 @@ class AnalyticsReportService
 
         // Prevent formula injection in Excel/Calc if starts with =, +, -, @, \t, \r
         if (preg_match('/^[=+\-@\t\r]/', $str)) {
-            $str = "'" . $str;
+            $str = "'".$str;
         }
 
         // Standard RFC 4180 escaping: wrap in quotes if contains comma, quote, or newline
         if (str_contains($str, ',') || str_contains($str, '"') || str_contains($str, "\n") || str_contains($str, "\r")) {
-            $str = '"' . str_replace('"', '""', $str) . '"';
+            $str = '"'.str_replace('"', '""', $str).'"';
         }
 
         return $str;
@@ -367,25 +369,25 @@ class AnalyticsReportService
 
         // Title Block
         $lines[] = 'Golden Resort - Business Intelligence & Operational Report';
-        $lines[] = 'Report Period: ' . $range['start_date'] . ' to ' . $range['end_date'] . ' (' . $range['days_count'] . ' days)';
-        $lines[] = 'Generated At: ' . now()->toDateTimeString();
+        $lines[] = 'Report Period: '.$range['start_date'].' to '.$range['end_date'].' ('.$range['days_count'].' days)';
+        $lines[] = 'Generated At: '.now()->toDateTimeString();
         $lines[] = '';
 
         // Executive KPI Summary
         $lines[] = 'EXECUTIVE SUMMARY METRICS';
         $lines[] = 'Metric,Value';
-        $lines[] = 'Occupancy Rate (%),' . $kpis['occupancy_rate_percent'] . '%';
-        $lines[] = 'Total Occupied Room Nights,' . $kpis['total_room_nights_occupied'];
-        $lines[] = 'Total Available Room Nights,' . $kpis['total_room_nights_available'];
-        $lines[] = 'Average Daily Rate (ADR PHP),' . number_format($kpis['adr_php'], 2, '.', '');
-        $lines[] = 'Average Length of Stay (ALOS Nights),' . $kpis['alos_nights'];
-        $lines[] = 'Total Bookings Created in Range,' . $kpis['total_bookings'];
-        $lines[] = 'Cancellations,' . $kpis['cancellations'] . ' (' . $kpis['cancellation_rate_percent'] . '%)';
-        $lines[] = 'No-Shows,' . $kpis['no_shows'] . ' (' . $kpis['no_show_rate_percent'] . '%)';
-        $lines[] = 'Gross Collections (PHP),' . number_format($fin['gross_collections_php'], 2, '.', '');
-        $lines[] = 'Completed Refunds (PHP),' . number_format($fin['completed_refunds_php'], 2, '.', '');
-        $lines[] = 'Net Collections (PHP),' . number_format($fin['net_collections_php'], 2, '.', '');
-        $lines[] = 'Total Active Outstanding Balances (PHP),' . number_format($fin['outstanding_balances_php'], 2, '.', '');
+        $lines[] = 'Occupancy Rate (%),'.$kpis['occupancy_rate_percent'].'%';
+        $lines[] = 'Total Occupied Room Nights,'.$kpis['total_room_nights_occupied'];
+        $lines[] = 'Total Available Room Nights,'.$kpis['total_room_nights_available'];
+        $lines[] = 'Average Daily Rate (ADR PHP),'.number_format($kpis['adr_php'], 2, '.', '');
+        $lines[] = 'Average Length of Stay (ALOS Nights),'.$kpis['alos_nights'];
+        $lines[] = 'Total Bookings Created in Range,'.$kpis['total_bookings'];
+        $lines[] = 'Cancellations,'.$kpis['cancellations'].' ('.$kpis['cancellation_rate_percent'].'%)';
+        $lines[] = 'No-Shows,'.$kpis['no_shows'].' ('.$kpis['no_show_rate_percent'].'%)';
+        $lines[] = 'Gross Collections (PHP),'.number_format($fin['gross_collections_php'], 2, '.', '');
+        $lines[] = 'Completed Refunds (PHP),'.number_format($fin['completed_refunds_php'], 2, '.', '');
+        $lines[] = 'Net Collections (PHP),'.number_format($fin['net_collections_php'], 2, '.', '');
+        $lines[] = 'Total Active Outstanding Balances (PHP),'.number_format($fin['outstanding_balances_php'], 2, '.', '');
         $lines[] = '';
 
         // Accommodation Performance Ranking
@@ -399,7 +401,7 @@ class AnalyticsReportService
                 $r['bookings_count'],
                 $r['nights_sold'],
                 number_format($r['revenue_php'], 2, '.', ''),
-                $r['occupancy_percent'] . '%',
+                $r['occupancy_percent'].'%',
             ];
             $lines[] = implode(',', $row);
         }
@@ -414,7 +416,7 @@ class AnalyticsReportService
                 $d['day_of_week'],
                 $d['occupied_units'],
                 $d['total_capacity'],
-                $d['occupancy_percent'] . '%',
+                $d['occupancy_percent'].'%',
             ];
             $lines[] = implode(',', $row);
         }

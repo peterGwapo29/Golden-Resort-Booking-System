@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { AdminAuthProvider, useAdminAuth } from "@/lib/admin-auth";
 import AdminSidebar from "@/components/admin/AdminSidebar";
+import AdminNotificationBell from "@/components/admin/AdminNotificationBell";
 import { MenuIcon } from "@/components/ui/Icons";
 
 function AdminLayoutInner({ children }: { children: React.ReactNode }) {
@@ -52,7 +53,9 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
             </h1>
           </div>
 
-          <div className="flex items-center gap-4 text-xs">
+          <div className="flex items-center gap-3 sm:gap-4 text-xs">
+            <AdminNotificationBell />
+
             <Link
               href="/"
               target="_blank"

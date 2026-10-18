@@ -8,6 +8,7 @@ use App\Http\Resources\ReservationResource;
 use App\Models\Guest;
 use App\Models\Reservation;
 use App\Models\Room;
+use App\Services\NotificationService;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -100,6 +101,11 @@ class ReservationController extends Controller
         });
 
         $reservation->load(['room', 'guest']);
+
+        // Dispatch automated booking confirmation and internal staff alert
+        $notificationService = app(NotificationService::class);
+        $notificationService->sendBookingConfirmation($reservation);
+        $notificationService->sendInternalNewBookingAlert($reservation);
 
         return (new ReservationResource($reservation))
             ->response()

@@ -4,6 +4,7 @@ namespace App\Http\Resources;
 
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Illuminate\Support\Facades\Storage;
 
 class RoomResource extends JsonResource
 {
@@ -28,8 +29,8 @@ class RoomResource extends JsonResource
             }
 
             if (! empty($img['path'])) {
-                if (\Illuminate\Support\Facades\Storage::disk('public')->exists($img['path'])) {
-                    $img['src'] = \Illuminate\Support\Facades\Storage::disk('public')->url($img['path']);
+                if (Storage::disk('public')->exists($img['path'])) {
+                    $img['src'] = Storage::disk('public')->url($img['path']);
 
                     return $img;
                 }

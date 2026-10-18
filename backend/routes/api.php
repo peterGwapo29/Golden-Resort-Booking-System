@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\Admin\AdminCheckInOutController;
 use App\Http\Controllers\Api\Admin\AdminCustomerController;
 use App\Http\Controllers\Api\Admin\AdminDashboardController;
 use App\Http\Controllers\Api\Admin\AdminHousekeepingController;
+use App\Http\Controllers\Api\Admin\AdminNotificationController;
 use App\Http\Controllers\Api\Admin\AdminPaymentController;
 use App\Http\Controllers\Api\Admin\AdminReservationController;
 use App\Http\Controllers\Api\Admin\AdminRoomController;
@@ -98,5 +99,15 @@ Route::prefix('admin')->group(function () {
         Route::get('/payments/{id}/refunds', [AdminPaymentController::class, 'refunds']);
         Route::get('/refunds', [AdminPaymentController::class, 'allRefunds']);
         Route::patch('/refunds/{id}/status', [AdminPaymentController::class, 'updateRefundStatus']);
+
+        // Automated notification logs, read tracking & on-demand dispatch
+        Route::get('/notifications', [AdminNotificationController::class, 'index']);
+        Route::get('/notifications/unread-count', [AdminNotificationController::class, 'unreadCount']);
+        Route::post('/notifications/mark-all-read', [AdminNotificationController::class, 'markAllAsRead']);
+        Route::patch('/notifications/{id}/read', [AdminNotificationController::class, 'markAsRead']);
+        Route::patch('/notifications/{id}/unread', [AdminNotificationController::class, 'markAsUnread']);
+        Route::get('/reservations/{id}/notifications', [AdminNotificationController::class, 'reservationNotifications']);
+        Route::post('/reservations/{id}/notifications/send', [AdminNotificationController::class, 'sendReservationNotification']);
+        Route::post('/notifications/{id}/retry', [AdminNotificationController::class, 'retry']);
     });
 });

@@ -271,7 +271,7 @@ class AdminHousekeepingController extends Controller
             // If task is maintenance, automatically place room under maintenance block
             if ($taskType === 'maintenance') {
                 $room->housekeeping_status = 'maintenance';
-                $room->housekeeping_notes = "Maintenance task #{$createdTask->id}: " . ($notes ?? 'Repair requested');
+                $room->housekeeping_notes = "Maintenance task #{$createdTask->id}: ".($notes ?? 'Repair requested');
                 $room->save();
             } elseif ($taskType === 'cleaning' || $taskType === 'deep_clean') {
                 // If room was clean or inspected, mark dirty to reflect need for cleaning
@@ -318,7 +318,7 @@ class AdminHousekeepingController extends Controller
             $task->status = $newStatus;
 
             if ($notes !== null) {
-                $task->notes = $task->notes ? $task->notes . "\n" . $notes : $notes;
+                $task->notes = $task->notes ? $task->notes."\n".$notes : $notes;
             }
 
             $room = $task->room;
@@ -344,7 +344,7 @@ class AdminHousekeepingController extends Controller
                     } elseif ($task->task_type === 'maintenance') {
                         // Maintenance completed! Set room back to clean condition
                         $room->housekeeping_status = 'clean';
-                        $room->housekeeping_notes = 'Maintenance resolved on ' . Carbon::now()->toFormattedDateString();
+                        $room->housekeeping_notes = 'Maintenance resolved on '.Carbon::now()->toFormattedDateString();
                     }
                     $room->save();
                 }

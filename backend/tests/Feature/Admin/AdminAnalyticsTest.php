@@ -18,7 +18,9 @@ class AdminAnalyticsTest extends TestCase
     use RefreshDatabase;
 
     private User $admin;
+
     private Room $deluxeRoom;
+
     private Room $suiteRoom;
 
     protected function setUp(): void

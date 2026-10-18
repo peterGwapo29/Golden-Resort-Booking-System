@@ -9,9 +9,9 @@ class SecurityAuditLogger
     /**
      * Log a security or administrative action in a structured, sanitized format.
      *
-     * @param string $event Event identifier (e.g. 'auth.login.success', 'payment.status_updated')
-     * @param string $action Human-readable description
-     * @param array<string, mixed> $context Additional non-sensitive context
+     * @param  string  $event  Event identifier (e.g. 'auth.login.success', 'payment.status_updated')
+     * @param  string  $action  Human-readable description
+     * @param  array<string, mixed>  $context  Additional non-sensitive context
      */
     public static function log(string $event, string $action, array $context = []): void
     {
@@ -37,7 +37,7 @@ class SecurityAuditLogger
     /**
      * Sanitize context data to ensure sensitive fields are never logged.
      *
-     * @param array<string, mixed> $data
+     * @param  array<string, mixed>  $data
      * @return array<string, mixed>
      */
     protected static function sanitize(array $data): array

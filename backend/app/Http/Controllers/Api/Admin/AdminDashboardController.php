@@ -4,9 +4,9 @@ namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Http\Resources\ReservationResource;
-use App\Models\Payment;
 use App\Models\Reservation;
 use App\Models\Room;
+use App\Services\FinancialCalculationService;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 
@@ -38,7 +38,7 @@ class AdminDashboardController extends Controller
             ->count();
 
         // Financial calculations via authoritative service
-        $financialService = app(\App\Services\FinancialCalculationService::class);
+        $financialService = app(FinancialCalculationService::class);
         $financialMetrics = $financialService->dashboardMetrics();
         $totalBookedValue = (float) Reservation::whereIn('status', ['confirmed', 'completed'])->sum('total_price_php');
         $pendingBookedValue = (float) Reservation::where('status', 'pending')->sum('total_price_php');

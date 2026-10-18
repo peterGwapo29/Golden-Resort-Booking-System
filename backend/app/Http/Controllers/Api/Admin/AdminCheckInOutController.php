@@ -62,7 +62,7 @@ class AdminCheckInOutController extends Controller
             ->orderBy('check_out', 'asc')
             ->get();
 
-        $formatReservation = function (Reservation $res, bool $isDeparture = false) use ($dateStr, $todayStr, $isPastNoon) {
+        $formatReservation = function (Reservation $res, bool $isDeparture = false) use ($todayStr, $isPastNoon) {
             $finSummary = $this->financialService->reservationSummary($res);
             $remaining = (float) $finSummary['remaining_balance_php'];
             $room = $res->room;
@@ -185,7 +185,7 @@ class AdminCheckInOutController extends Controller
         $outstanding = $this->financialService->outstandingBalance($reservation);
         if ($outstanding > 0 && ! $request->boolean('acknowledge_balance')) {
             return response()->json([
-                'message' => "Outstanding balance of ₱" . number_format($outstanding, 2) . " detected. Please collect payment or acknowledge the balance to proceed.",
+                'message' => 'Outstanding balance of ₱'.number_format($outstanding, 2).' detected. Please collect payment or acknowledge the balance to proceed.',
                 'requires_acknowledgment' => true,
                 'remaining_balance_php' => $outstanding,
                 'currency' => 'PHP',
@@ -199,7 +199,7 @@ class AdminCheckInOutController extends Controller
 
             if ($request->filled('notes')) {
                 $existing = $reservation->check_in_notes ?? '';
-                $reservation->check_in_notes = trim($existing . "\n" . $request->input('notes'));
+                $reservation->check_in_notes = trim($existing."\n".$request->input('notes'));
             }
 
             $reservation->save();
@@ -255,7 +255,7 @@ class AdminCheckInOutController extends Controller
         $outstanding = $this->financialService->outstandingBalance($reservation);
         if ($outstanding > 0 && ! $request->boolean('acknowledge_balance')) {
             return response()->json([
-                'message' => "Outstanding balance of ₱" . number_format($outstanding, 2) . " remains unsettled. Please collect payment or acknowledge the balance to proceed with check-out.",
+                'message' => 'Outstanding balance of ₱'.number_format($outstanding, 2).' remains unsettled. Please collect payment or acknowledge the balance to proceed with check-out.',
                 'requires_acknowledgment' => true,
                 'remaining_balance_php' => $outstanding,
                 'currency' => 'PHP',
@@ -269,7 +269,7 @@ class AdminCheckInOutController extends Controller
 
             if ($request->filled('notes')) {
                 $existing = $reservation->check_out_notes ?? '';
-                $reservation->check_out_notes = trim($existing . "\n" . $request->input('notes'));
+                $reservation->check_out_notes = trim($existing."\n".$request->input('notes'));
             }
 
             $reservation->save();

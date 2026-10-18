@@ -17,6 +17,7 @@ import {
   CloseIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
+  BellIcon,
 } from "@/components/ui/Icons";
 
 export interface NavItem {
@@ -52,6 +53,7 @@ export const ADMIN_NAV_SECTIONS: NavSection[] = [
       { label: "Reservations", href: "/admin/reservations", icon: ClipboardListIcon },
       { label: "Customers", href: "/admin/customers", icon: UserCheckIcon },
       { label: "Payments & Refunds", href: "/admin/payments", icon: CreditCardIcon },
+      { label: "Notifications", href: "/admin/notifications", icon: BellIcon },
     ],
   },
 ];

@@ -6,6 +6,7 @@ use App\Models\Refund;
 use App\Models\Reservation;
 use App\Models\Room;
 use App\Models\User;
+use App\Services\FinancialCalculationService;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
@@ -183,7 +184,7 @@ test('pending refund does not reduce net collections until completed', function 
     $refundId = $response->json('data.id');
 
     // Net collections remains 5000 while refund is pending
-    $calc = app(\App\Services\FinancialCalculationService::class);
+    $calc = app(FinancialCalculationService::class);
     expect($calc->grossCollections($this->reservation->id))->toBe(5000.00);
     expect($calc->completedRefunds($this->reservation->id))->toBe(0.00);
     expect($calc->netCollections($this->reservation->id))->toBe(5000.00);

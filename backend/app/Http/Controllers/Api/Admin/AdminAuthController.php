@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\Admin;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\AdminLoginRequest;
 use App\Models\User;
+use App\Services\SecurityAuditLogger;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -20,7 +21,7 @@ class AdminAuthController extends Controller
         $user = User::query()->where('email', $request->input('email'))->first();
 
         if (! $user || ! Hash::check($request->input('password'), $user->password)) {
-            \App\Services\SecurityAuditLogger::log('auth.login.failed', 'Admin login failed', [
+            SecurityAuditLogger::log('auth.login.failed', 'Admin login failed', [
                 'email' => $request->input('email'),
             ]);
 
@@ -30,7 +31,7 @@ class AdminAuthController extends Controller
         }
 
         if (! $user->isAdmin()) {
-            \App\Services\SecurityAuditLogger::log('auth.login.forbidden', 'Non-admin user attempted admin login', [
+            SecurityAuditLogger::log('auth.login.forbidden', 'Non-admin user attempted admin login', [
                 'email' => $user->email,
                 'role' => $user->role,
             ]);
@@ -42,7 +43,7 @@ class AdminAuthController extends Controller
 
         $token = $user->createToken('admin-token', ['admin'])->plainTextToken;
 
-        \App\Services\SecurityAuditLogger::log('auth.login.success', 'Admin login successful', [
+        SecurityAuditLogger::log('auth.login.success', 'Admin login successful', [
             'email' => $user->email,
             'user_id' => $user->id,
         ]);
@@ -67,7 +68,7 @@ class AdminAuthController extends Controller
         $userId = $request->user()?->id;
         $request->user()->currentAccessToken()?->delete();
 
-        \App\Services\SecurityAuditLogger::log('auth.logout', 'Admin logged out', [
+        SecurityAuditLogger::log('auth.logout', 'Admin logged out', [
             'user_id' => $userId,
         ]);
 

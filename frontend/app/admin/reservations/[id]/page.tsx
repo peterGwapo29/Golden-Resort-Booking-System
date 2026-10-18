@@ -8,6 +8,9 @@ import {
   recordAdminPayment,
   updateAdminPaymentStatus,
   createAdminRefund,
+  getReservationNotifications,
+  sendReservationNotification,
+  type BookingNotificationItem,
 } from "@/lib/admin-api";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import {
@@ -15,6 +18,10 @@ import {
   UserCheckIcon,
   CreditCardIcon,
   PlusIcon,
+  BellIcon,
+  MailIcon,
+  CheckIcon,
+  CloseIcon,
 } from "@/components/ui/Icons";
 
 interface PageProps {
@@ -61,6 +68,42 @@ export default function AdminReservationDetailPage({ params }: PageProps) {
   const [submittingRefund, setSubmittingRefund] = useState(false);
   const [refundModalError, setRefundModalError] = useState<string | null>(null);
 
+  // Communications & Notifications State
+  const [notifications, setNotifications] = useState<BookingNotificationItem[]>([]);
+  const [loadingNotifications, setLoadingNotifications] = useState(false);
+  const [sendingNotifType, setSendingNotifType] = useState<string | null>(null);
+  const [notifSuccessMsg, setNotifSuccessMsg] = useState<string | null>(null);
+  const [notifErrorMsg, setNotifErrorMsg] = useState<string | null>(null);
+
+  const fetchNotifications = async () => {
+    try {
+      setLoadingNotifications(true);
+      const res = await getReservationNotifications(reservationId);
+      setNotifications(res.data);
+    } catch (err: any) {
+      console.error("Could not fetch notifications:", err);
+    } finally {
+      setLoadingNotifications(false);
+    }
+  };
+
+  const handleSendNotification = async (
+    type: "booking_confirmation" | "payment_reminder" | "checkin_reminder"
+  ) => {
+    setSendingNotifType(type);
+    setNotifSuccessMsg(null);
+    setNotifErrorMsg(null);
+    try {
+      const res = await sendReservationNotification(reservationId, type);
+      setNotifSuccessMsg(res.message);
+      await fetchNotifications();
+    } catch (err: any) {
+      setNotifErrorMsg(err.message || "Failed to dispatch notification.");
+    } finally {
+      setSendingNotifType(null);
+    }
+  };
+
   const fetchReservation = async () => {
     try {
       setLoading(true);
@@ -85,6 +128,7 @@ export default function AdminReservationDetailPage({ params }: PageProps) {
   useEffect(() => {
     if (!isNaN(reservationId)) {
       fetchReservation();
+      fetchNotifications();
     }
   }, [reservationId]);
 
@@ -836,6 +880,151 @@ export default function AdminReservationDetailPage({ params }: PageProps) {
                 </tbody>
               </table>
             </div>
+          </div>
+        )}
+      </div>
+
+      {/* GUEST COMMUNICATIONS & NOTIFICATION HISTORY */}
+      <div className="bg-white rounded-2xl border border-ivory-300 shadow-sm p-6 sm:p-8 space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-ivory-200 pb-5">
+          <div>
+            <div className="flex items-center gap-2">
+              <h2 className="text-xl font-serif font-bold text-forest">
+                Guest Communications & Notifications
+              </h2>
+              <span className="flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-gold/20 text-forest border border-gold/30">
+                <BellIcon className="w-3.5 h-3.5 text-forest" />
+                {notifications.length} Logged
+              </span>
+            </div>
+            <p className="text-xs text-stone-500 mt-1">
+              Automated delivery history and staff on-demand triggers for this reservation.
+            </p>
+          </div>
+
+          {/* Trigger Actions */}
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => handleSendNotification("booking_confirmation")}
+              disabled={sendingNotifType !== null}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-forest/20 bg-white hover:bg-forest/5 text-xs font-semibold text-forest transition shadow-xs disabled:opacity-50"
+            >
+              <MailIcon className="w-3.5 h-3.5" />
+              <span>{sendingNotifType === "booking_confirmation" ? "Sending..." : "Resend Confirmation"}</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => handleSendNotification("payment_reminder")}
+              disabled={sendingNotifType !== null || remainingBalance <= 0}
+              title={remainingBalance <= 0 ? "Reservation is fully paid" : "Send payment reminder"}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-amber-300 bg-amber-50 hover:bg-amber-100 text-xs font-semibold text-amber-800 transition shadow-xs disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <CreditCardIcon className="w-3.5 h-3.5" />
+              <span>{sendingNotifType === "payment_reminder" ? "Sending..." : "Send Payment Reminder"}</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => handleSendNotification("checkin_reminder")}
+              disabled={sendingNotifType !== null}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-purple-300 bg-purple-50 hover:bg-purple-100 text-xs font-semibold text-purple-800 transition shadow-xs disabled:opacity-50"
+            >
+              <DoorIcon className="w-3.5 h-3.5" />
+              <span>{sendingNotifType === "checkin_reminder" ? "Sending..." : "Send Check-In Reminder"}</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Feedback alerts */}
+        {notifSuccessMsg && (
+          <div className="flex items-center justify-between p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-800 text-xs">
+            <div className="flex items-center gap-2">
+              <CheckIcon className="w-4 h-4 text-emerald-600 shrink-0" />
+              <span>{notifSuccessMsg}</span>
+            </div>
+            <button onClick={() => setNotifSuccessMsg(null)} className="text-emerald-600 hover:text-emerald-900">
+              <CloseIcon className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
+
+        {notifErrorMsg && (
+          <div className="flex items-center justify-between p-3.5 bg-rose-50 border border-rose-200 rounded-xl text-rose-800 text-xs">
+            <div className="flex items-center gap-2">
+              <CloseIcon className="w-4 h-4 text-rose-600 shrink-0" />
+              <span>{notifErrorMsg}</span>
+            </div>
+            <button onClick={() => setNotifErrorMsg(null)} className="text-rose-600 hover:text-rose-900">
+              <CloseIcon className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
+
+        {/* Notifications Table */}
+        {loadingNotifications ? (
+          <div className="py-8 flex justify-center items-center">
+            <div className="w-6 h-6 border-2 border-forest border-t-gold rounded-full animate-spin" />
+          </div>
+        ) : notifications.length === 0 ? (
+          <div className="text-center py-8 text-stone-400 text-xs italic">
+            No notifications recorded yet for this reservation. Use the buttons above to dispatch messages.
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-ivory-50 text-[10px] font-bold uppercase tracking-wider text-stone-500 border-b border-ivory-200">
+                <tr>
+                  <th className="py-2.5 px-4">Event Type</th>
+                  <th className="py-2.5 px-4">Recipient</th>
+                  <th className="py-2.5 px-4">Subject</th>
+                  <th className="py-2.5 px-4">Delivery Status</th>
+                  <th className="py-2.5 px-4">Dispatched At</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-ivory-100">
+                {notifications.map((notif) => (
+                  <tr key={notif.id} className="hover:bg-ivory-50/50 transition">
+                    <td className="py-2.5 px-4">
+                      <span className="font-semibold text-stone-800 capitalize">
+                        {notif.notification_type.replace(/_/g, " ")}
+                      </span>
+                    </td>
+                    <td className="py-2.5 px-4 font-mono text-stone-700">
+                      {notif.recipient_email}
+                      <span className="text-[10px] text-stone-400 block capitalize">
+                        {notif.recipient_type}
+                      </span>
+                    </td>
+                    <td className="py-2.5 px-4 text-stone-700 max-w-xs truncate" title={notif.subject}>
+                      {notif.subject}
+                    </td>
+                    <td className="py-2.5 px-4">
+                      {notif.status === "sent" ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                          Sent
+                        </span>
+                      ) : notif.status === "queued" ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-200">
+                          <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                          Queued
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-rose-50 text-rose-700 border border-rose-200">
+                          <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
+                          Failed
+                        </span>
+                      )}
+                    </td>
+                    <td className="py-2.5 px-4 text-stone-500 tabular-nums">
+                      {formatDate(notif.sent_at || notif.created_at)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
       </div>

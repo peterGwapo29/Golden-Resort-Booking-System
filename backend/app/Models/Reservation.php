@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\FinancialCalculationService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -97,11 +98,19 @@ class Reservation extends Model
     }
 
     /**
+     * Get automated booking notifications recorded for this reservation.
+     */
+    public function notifications(): HasMany
+    {
+        return $this->hasMany(BookingNotification::class);
+    }
+
+    /**
      * Calculate total verified net paid amount applied to this reservation.
      */
     public function totalPaid(): float
     {
-        return app(\App\Services\FinancialCalculationService::class)->netCollections($this->id);
+        return app(FinancialCalculationService::class)->netCollections($this->id);
     }
 
     /**
@@ -109,7 +118,7 @@ class Reservation extends Model
      */
     public function paymentStatus(): string
     {
-        return app(\App\Services\FinancialCalculationService::class)->paymentStatus($this);
+        return app(FinancialCalculationService::class)->paymentStatus($this);
     }
 
     /**

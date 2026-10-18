@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Guest;
+use App\Models\Payment;
 use App\Models\Reservation;
 use App\Models\Room;
 use App\Models\User;
@@ -112,7 +113,7 @@ test('admin can update payment status from pending to completed', function () {
 });
 
 test('admin can update payment status to cancelled or failed', function () {
-    $payment = \App\Models\Payment::create([
+    $payment = Payment::create([
         'reservation_id' => $this->reservation->id,
         'payment_reference' => 'PAY-TEST-REF1',
         'amount' => 5000.00,
@@ -136,7 +137,7 @@ test('admin can update payment status to cancelled or failed', function () {
 });
 
 test('updating payment status rejects invalid status', function () {
-    $payment = \App\Models\Payment::create([
+    $payment = Payment::create([
         'reservation_id' => $this->reservation->id,
         'payment_reference' => 'PAY-TEST-REF2',
         'amount' => 5000.00,
@@ -156,7 +157,7 @@ test('updating payment status rejects invalid status', function () {
 });
 
 test('unauthorized user cannot update payment status', function () {
-    $payment = \App\Models\Payment::create([
+    $payment = Payment::create([
         'reservation_id' => $this->reservation->id,
         'payment_reference' => 'PAY-TEST-REF3',
         'amount' => 5000.00,
@@ -184,7 +185,7 @@ test('admin can list payments and view total revenue summary strictly from compl
         ])->assertStatus(201);
 
     // 1 completed payment created directly
-    \App\Models\Payment::create([
+    Payment::create([
         'reservation_id' => $this->reservation->id,
         'payment_reference' => 'PAY-TEST-COMP',
         'amount' => 10000.00,

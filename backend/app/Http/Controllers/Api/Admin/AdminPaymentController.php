@@ -11,6 +11,7 @@ use App\Models\Payment;
 use App\Models\Refund;
 use App\Models\Reservation;
 use App\Services\FinancialCalculationService;
+use App\Services\NotificationService;
 use App\Services\SecurityAuditLogger;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
@@ -224,7 +225,7 @@ class AdminPaymentController extends Controller
         }
 
         DB::transaction(function () use ($payment, $validated, $newStatus, $oldStatus, $request) {
-            $auditNote = !empty($validated['notes']) ? trim($validated['notes']) : null;
+            $auditNote = ! empty($validated['notes']) ? trim($validated['notes']) : null;
             $staffName = $request->user()?->name ?? 'Admin';
             $timestamp = Carbon::now()->format('M d, Y h:i A');
 
@@ -245,6 +246,10 @@ class AdminPaymentController extends Controller
         ]);
 
         $payment->load(['reservation', 'recordedBy', 'refunds']);
+
+        if ($newStatus === 'completed' && $oldStatus !== 'completed') {
+            app(NotificationService::class)->sendPaymentConfirmation($payment);
+        }
 
         $metrics = $this->financialService->dashboardMetrics();
 
@@ -335,7 +340,7 @@ class AdminPaymentController extends Controller
 
             $staffName = $request->user()?->name ?? 'Admin';
             $timestamp = Carbon::now()->format('M d, Y h:i A');
-            $statusLog = "[Refund Issued: ₱".number_format($refundAmount, 2)." ({$reference}) by {$staffName} on {$timestamp}: {$validated['reason']}]";
+            $statusLog = '[Refund Issued: ₱'.number_format($refundAmount, 2)." ({$reference}) by {$staffName} on {$timestamp}: {$validated['reason']}]";
             $payment->notes = trim(($payment->notes ? $payment->notes."\n" : '').$statusLog);
             $payment->save();
 
@@ -364,12 +369,16 @@ class AdminPaymentController extends Controller
             'reason' => $refund->reason,
         ]);
 
-        $refund->load(['requestedBy', 'approvedBy']);
+        $refund->load(['requestedBy', 'approvedBy', 'reservation', 'payment']);
+
+        // Dispatch refund status notification
+        app(NotificationService::class)->sendRefundStatusUpdate($refund);
+
         $reservationSummary = $this->financialService->reservationSummary($payment->reservation);
         $dashboardMetrics = $this->financialService->dashboardMetrics();
 
         return response()->json([
-            'message' => "Refund of ₱".number_format((float) $refund->amount, 2)." processed successfully.",
+            'message' => 'Refund of ₱'.number_format((float) $refund->amount, 2).' processed successfully.',
             'data' => [
                 'id' => $refund->id,
                 'refund_reference' => $refund->refund_reference,
@@ -530,7 +539,7 @@ class AdminPaymentController extends Controller
         }
 
         DB::transaction(function () use ($refund, $validated, $newStatus, $oldStatus, $request) {
-            $auditNote = !empty($validated['notes']) ? trim($validated['notes']) : null;
+            $auditNote = ! empty($validated['notes']) ? trim($validated['notes']) : null;
             $staffName = $request->user()?->name ?? 'Admin';
             $timestamp = Carbon::now()->format('M d, Y h:i A');
 
@@ -556,6 +565,11 @@ class AdminPaymentController extends Controller
         ]);
 
         $refund->load(['requestedBy', 'approvedBy', 'payment.reservation']);
+
+        if ($newStatus !== $oldStatus) {
+            app(NotificationService::class)->sendRefundStatusUpdate($refund);
+        }
+
         $metrics = $this->financialService->dashboardMetrics();
 
         return response()->json([

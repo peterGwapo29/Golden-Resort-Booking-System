@@ -976,3 +976,172 @@ export async function downloadAdminAnalyticsCsv(params: {
   a.remove();
   window.URL.revokeObjectURL(url);
 }
+
+/* ==================== AUTOMATED BOOKING NOTIFICATIONS API ==================== */
+
+export interface BookingNotificationItem {
+  id: number;
+  reservation_id?: number | null;
+  booking_reference?: string | null;
+  guest_name?: string | null;
+  room_name?: string | null;
+  recipient_email: string;
+  recipient_type: "guest" | "staff";
+  notification_type:
+    | "booking_confirmation"
+    | "internal_new_booking"
+    | "payment_confirmation"
+    | "payment_reminder"
+    | "checkin_reminder"
+    | "booking_cancellation"
+    | "refund_update";
+  channel: string;
+  subject: string;
+  status: "queued" | "sent" | "failed";
+  is_read?: boolean;
+  read_at?: string | null;
+  error_message?: string | null;
+  sent_at?: string | null;
+  created_at: string;
+}
+
+export interface NotificationMetrics {
+  total: number;
+  unread: number;
+  sent: number;
+  queued: number;
+  failed: number;
+}
+
+export interface AdminNotificationsResponse {
+  data: BookingNotificationItem[];
+  metrics: NotificationMetrics;
+  meta: {
+    current_page: number;
+    last_page: number;
+    per_page: number;
+    total: number;
+  };
+}
+
+export async function getAdminNotifications(params: {
+  search?: string;
+  status?: string;
+  read_status?: string;
+  notification_type?: string;
+  recipient_type?: string;
+  from_date?: string;
+  to_date?: string;
+  page?: number;
+} = {}): Promise<AdminNotificationsResponse> {
+  const q = new URLSearchParams();
+  if (params.search) q.set("search", params.search);
+  if (params.status && params.status !== "all") q.set("status", params.status);
+  if (params.read_status && params.read_status !== "all") q.set("read_status", params.read_status);
+  if (params.notification_type && params.notification_type !== "all") {
+    q.set("notification_type", params.notification_type);
+  }
+  if (params.recipient_type && params.recipient_type !== "all") {
+    q.set("recipient_type", params.recipient_type);
+  }
+  if (params.from_date) q.set("from_date", params.from_date);
+  if (params.to_date) q.set("to_date", params.to_date);
+  if (params.page) q.set("page", String(params.page));
+
+  return adminFetch<AdminNotificationsResponse>(`/admin/notifications?${q.toString()}`);
+}
+
+export async function getAdminUnreadNotificationCount(): Promise<{ unread_count: number }> {
+  return adminFetch<{ unread_count: number }>("/admin/notifications/unread-count");
+}
+
+export async function markNotificationAsRead(
+  notificationId: number
+): Promise<{
+  message: string;
+  unread_count: number;
+  data: Partial<BookingNotificationItem>;
+}> {
+  return adminFetch<{
+    message: string;
+    unread_count: number;
+    data: Partial<BookingNotificationItem>;
+  }>(`/admin/notifications/${notificationId}/read`, {
+    method: "PATCH",
+  });
+}
+
+export async function markNotificationAsUnread(
+  notificationId: number
+): Promise<{
+  message: string;
+  unread_count: number;
+  data: Partial<BookingNotificationItem>;
+}> {
+  return adminFetch<{
+    message: string;
+    unread_count: number;
+    data: Partial<BookingNotificationItem>;
+  }>(`/admin/notifications/${notificationId}/unread`, {
+    method: "PATCH",
+  });
+}
+
+export async function markAllNotificationsAsRead(): Promise<{
+  message: string;
+  affected: number;
+  unread_count: number;
+}> {
+  return adminFetch<{
+    message: string;
+    affected: number;
+    unread_count: number;
+  }>("/admin/notifications/mark-all-read", {
+    method: "POST",
+  });
+}
+
+export async function getReservationNotifications(
+  reservationId: number
+): Promise<{
+  reservation_id: number;
+  booking_reference: string;
+  data: BookingNotificationItem[];
+}> {
+  return adminFetch<{
+    reservation_id: number;
+    booking_reference: string;
+    data: BookingNotificationItem[];
+  }>(`/admin/reservations/${reservationId}/notifications`);
+}
+
+export async function sendReservationNotification(
+  reservationId: number,
+  type: "booking_confirmation" | "payment_reminder" | "checkin_reminder"
+): Promise<{
+  message: string;
+  data: Partial<BookingNotificationItem>;
+}> {
+  return adminFetch<{
+    message: string;
+    data: Partial<BookingNotificationItem>;
+  }>(`/admin/reservations/${reservationId}/notifications/send`, {
+    method: "POST",
+    body: JSON.stringify({ type }),
+  });
+}
+
+export async function retryAdminNotification(
+  notificationId: number
+): Promise<{
+  message: string;
+  data: Partial<BookingNotificationItem>;
+}> {
+  return adminFetch<{
+    message: string;
+    data: Partial<BookingNotificationItem>;
+  }>(`/admin/notifications/${notificationId}/retry`, {
+    method: "POST",
+  });
+}
+

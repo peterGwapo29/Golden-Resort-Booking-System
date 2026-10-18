@@ -7,6 +7,8 @@ use App\Http\Requests\Admin\UpdateReservationStatusRequest;
 use App\Http\Resources\ReservationResource;
 use App\Models\Reservation;
 use App\Models\Room;
+use App\Services\FinancialCalculationService;
+use App\Services\NotificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -46,7 +48,7 @@ class AdminReservationController extends Controller
         }
 
         $reservations = $query->latest('id')->paginate(15);
-        $financialService = app(\App\Services\FinancialCalculationService::class);
+        $financialService = app(FinancialCalculationService::class);
 
         $items = collect($reservations->items())->map(function ($res) use ($financialService) {
             $data = (new ReservationResource($res))->resolve(request());
@@ -81,7 +83,7 @@ class AdminReservationController extends Controller
             'refunds.approvedBy',
         ])->findOrFail($id);
 
-        $financialService = app(\App\Services\FinancialCalculationService::class);
+        $financialService = app(FinancialCalculationService::class);
         $summary = $financialService->reservationSummary($reservation);
 
         $data = (new ReservationResource($reservation))->resolve(request());
@@ -176,6 +178,14 @@ class AdminReservationController extends Controller
         });
 
         $updated->load(['room', 'guest']);
+
+        // Dispatch status-triggered automated notifications
+        $notificationService = app(NotificationService::class);
+        if ($newStatus === 'cancelled') {
+            $notificationService->sendCancellationNotice($updated);
+        } elseif ($newStatus === 'confirmed') {
+            $notificationService->sendBookingConfirmation($updated);
+        }
 
         return (new ReservationResource($updated))
             ->response()
