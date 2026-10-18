@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, use } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { getAdminCustomer } from "@/lib/admin-api";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import {
@@ -15,6 +16,8 @@ interface PageProps {
 }
 
 export default function AdminCustomerDetailPage({ params }: PageProps) {
+  const pathname = usePathname();
+  const portalBase = pathname.startsWith("/staff") ? "/staff" : "/admin";
   const resolvedParams = use(params);
   const customerId = parseInt(resolvedParams.id, 10);
 
@@ -55,7 +58,7 @@ export default function AdminCustomerDetailPage({ params }: PageProps) {
         <h3 className="text-lg font-serif font-bold text-red-900 mb-2">Guest Not Found</h3>
         <p className="text-sm mb-6">{error || "Unable to locate this customer profile."}</p>
         <Link
-          href="/admin/customers"
+          href={`${portalBase}/customers`}
           className="inline-flex items-center px-4 py-2 bg-forest text-white rounded-lg hover:bg-forest-dark transition shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold focus-visible:ring-offset-2"
         >
           ← Back to Guest Directory
@@ -94,7 +97,7 @@ export default function AdminCustomerDetailPage({ params }: PageProps) {
       const resTarget = rowData.id ?? rowData.booking_reference;
       return (
         <Link
-          href={`/admin/reservations/${resTarget}`}
+          href={`${portalBase}/reservations/${resTarget}`}
           className="font-mono text-xs font-bold text-forest hover:underline hover:text-gold"
         >
           {rowData.booking_reference}
@@ -145,7 +148,7 @@ export default function AdminCustomerDetailPage({ params }: PageProps) {
       return (
         <div className="text-right">
           <Link
-            href={`/admin/reservations/${resTarget}`}
+            href={`${portalBase}/reservations/${resTarget}`}
             className="inline-flex items-center px-3 py-1 bg-white border border-stone-300 text-stone-800 hover:bg-stone-50 hover:text-stone-900 rounded-lg text-xs font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-forest shadow-xs"
           >
             View Booking →
@@ -160,7 +163,7 @@ export default function AdminCustomerDetailPage({ params }: PageProps) {
       {/* Navigation Breadcrumb */}
       <div className="flex items-center gap-3 pb-2 border-b border-ivory-300">
         <Link
-          href="/admin/customers"
+          href={`${portalBase}/customers`}
           className="text-stone-600 hover:text-forest transition text-sm flex items-center gap-1 font-medium"
         >
           ← Back to Guest Directory

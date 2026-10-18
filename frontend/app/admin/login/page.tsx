@@ -22,8 +22,12 @@ export default function AdminLoginPage() {
     setError(null);
 
     try {
-      await login(email, password);
-      router.push("/admin");
+      const authenticatedUser = await login(email, password);
+      if (authenticatedUser && authenticatedUser.role === "admin") {
+        router.push("/admin");
+      } else {
+        router.push("/staff");
+      }
     } catch (err) {
       if (err instanceof ApiError) {
         if (err.status === 429) {

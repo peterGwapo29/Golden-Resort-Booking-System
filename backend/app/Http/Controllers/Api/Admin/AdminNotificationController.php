@@ -22,7 +22,7 @@ class AdminNotificationController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        $query = BookingNotification::query()->with(['reservation.room', 'payment', 'refund']);
+        $query = BookingNotification::query()->with(['reservation.room', 'payment', 'refund', 'maintenanceRequest.room']);
 
         if ($request->filled('search')) {
             $search = $request->input('search');
@@ -32,6 +32,11 @@ class AdminNotificationController extends Controller
                     ->orWhereHas('reservation', function ($rq) use ($search) {
                         $rq->where('booking_reference', 'like', "%{$search}%")
                             ->orWhere('guest_name_snapshot', 'like', "%{$search}%");
+                    })
+                    ->orWhereHas('maintenanceRequest', function ($mq) use ($search) {
+                        $mq->where('tracking_number', 'like', "%{$search}%")
+                            ->orWhere('title', 'like', "%{$search}%")
+                            ->orWhere('resource_name', 'like', "%{$search}%");
                     });
             });
         }
@@ -81,7 +86,10 @@ class AdminNotificationController extends Controller
                 'reservation_id' => $notif->reservation_id,
                 'booking_reference' => $notif->reservation?->booking_reference,
                 'guest_name' => $notif->reservation?->guest_name_snapshot,
-                'room_name' => $notif->reservation?->room?->name,
+                'room_name' => $notif->reservation?->room?->name ?? $notif->maintenanceRequest?->room?->name,
+                'maintenance_request_id' => $notif->maintenance_request_id,
+                'tracking_number' => $notif->maintenanceRequest?->tracking_number,
+                'resource_name' => $notif->maintenanceRequest?->resource_name,
                 'recipient_email' => $notif->recipient_email,
                 'recipient_type' => $notif->recipient_type,
                 'notification_type' => $notif->notification_type,

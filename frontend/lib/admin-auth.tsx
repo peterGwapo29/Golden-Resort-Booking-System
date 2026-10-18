@@ -13,7 +13,7 @@ interface AdminAuthContextType {
   token: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (email: string, pass: string) => Promise<void>;
+  login: (email: string, pass: string) => Promise<AdminUser>;
   logout: () => Promise<void>;
 }
 
@@ -22,7 +22,7 @@ const AdminAuthContext = createContext<AdminAuthContextType>({
   token: null,
   isAuthenticated: false,
   isLoading: true,
-  login: async () => {},
+  login: async () => ({} as AdminUser),
   logout: async () => {},
 });
 
@@ -66,12 +66,13 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
     restoreSession();
   }, []);
 
-  const login = async (email: string, pass: string) => {
+  const login = async (email: string, pass: string): Promise<AdminUser> => {
     const res = await apiLogin(email, pass);
     setToken(res.token);
     setUser(res.user);
     localStorage.setItem("gr_admin_token", res.token);
     localStorage.setItem("gr_admin_user", JSON.stringify(res.user));
+    return res.user;
   };
 
   const logout = async () => {

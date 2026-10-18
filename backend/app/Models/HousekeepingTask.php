@@ -11,6 +11,20 @@ class HousekeepingTask extends Model
 {
     use HasFactory;
 
+    public const STATUS_PENDING = 'pending';
+    public const STATUS_IN_PROGRESS = 'in_progress';
+    public const STATUS_PENDING_REVIEW = 'pending_review';
+    public const STATUS_COMPLETED = 'completed';
+    public const STATUS_CANCELLED = 'cancelled';
+
+    public const STATUSES = [
+        self::STATUS_PENDING,
+        self::STATUS_IN_PROGRESS,
+        self::STATUS_PENDING_REVIEW,
+        self::STATUS_COMPLETED,
+        self::STATUS_CANCELLED,
+    ];
+
     /**
      * The attributes that are mass assignable.
      *
@@ -27,6 +41,8 @@ class HousekeepingTask extends Model
         'scheduled_date',
         'started_at',
         'completed_at',
+        'submitted_for_review_at',
+        'evidence_url',
     ];
 
     /**
@@ -40,6 +56,7 @@ class HousekeepingTask extends Model
             'scheduled_date' => 'date:Y-m-d',
             'started_at' => 'datetime',
             'completed_at' => 'datetime',
+            'submitted_for_review_at' => 'datetime',
         ];
     }
 
@@ -84,10 +101,26 @@ class HousekeepingTask extends Model
     }
 
     /**
-     * Scope for active tasks (pending or in_progress).
+     * Scope for active tasks (pending, in_progress, or pending_review).
      */
     public function scopeActive(Builder $query): Builder
     {
-        return $query->whereIn('status', ['pending', 'in_progress']);
+        return $query->whereIn('status', ['pending', 'in_progress', 'pending_review']);
+    }
+
+    /**
+     * Scope for tasks pending supervisor review.
+     */
+    public function scopePendingReview(Builder $query): Builder
+    {
+        return $query->where('status', self::STATUS_PENDING_REVIEW);
+    }
+
+    /**
+     * Chronological audit log entries for this housekeeping task.
+     */
+    public function history(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(HousekeepingTaskHistory::class, 'housekeeping_task_id')->orderBy('id', 'desc');
     }
 }

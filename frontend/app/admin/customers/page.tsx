@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { getAdminCustomers, PaginatedResult } from "@/lib/admin-api";
 import { formatDate } from "@/lib/utils";
 import {
@@ -12,6 +13,8 @@ import {
 import DataTablesWrapper from "@/components/admin/DataTablesWrapper";
 
 export default function AdminCustomersPage() {
+  const pathname = usePathname();
+  const portalBase = pathname.startsWith("/staff") ? "/staff" : "/admin";
   const [data, setData] = useState<PaginatedResult<any> | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -61,7 +64,7 @@ export default function AdminCustomersPage() {
   const tableSlots = {
     name: (_cellData: any, rowData: any) => (
       <Link
-        href={`/admin/customers/${rowData.id}`}
+        href={`${portalBase}/customers/${rowData.id}`}
         className="font-semibold text-forest hover:text-gold transition"
       >
         {rowData.full_name}
@@ -93,7 +96,7 @@ export default function AdminCustomersPage() {
     actions: (_cellData: any, rowData: any) => (
       <div className="text-right">
         <Link
-          href={`/admin/customers/${rowData.id}`}
+          href={`${portalBase}/customers/${rowData.id}`}
           className="inline-flex items-center px-3 py-1 bg-ivory-100 text-forest hover:bg-forest hover:text-white rounded-lg text-xs font-semibold transition"
         >
           View Profile →

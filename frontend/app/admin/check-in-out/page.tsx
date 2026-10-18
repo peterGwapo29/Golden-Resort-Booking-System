@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import {
   getAdminCheckInOutOverview,
   processAdminCheckIn,
@@ -26,6 +27,9 @@ import {
 } from "@/components/ui/Icons";
 
 export default function AdminCheckInOutPage() {
+  const pathname = usePathname();
+  const portalBase = pathname.startsWith("/staff") ? "/staff" : "/admin";
+
   const [selectedDate, setSelectedDate] = useState<string>(() => {
     const today = new Date();
     return today.toISOString().split("T")[0];
@@ -496,7 +500,7 @@ export default function AdminCheckInOutPage() {
                         </button>
                       ) : (
                         <Link
-                          href={`/admin/reservations`}
+                          href={`${portalBase}/reservations`}
                           className="block w-full rounded-xl border border-slate-200 py-2 text-center text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors"
                         >
                           View Reservation Details

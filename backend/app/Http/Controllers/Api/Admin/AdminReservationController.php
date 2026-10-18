@@ -3,15 +3,22 @@
 namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\CreateAdminReservationRequest;
 use App\Http\Requests\Admin\UpdateReservationStatusRequest;
 use App\Http\Resources\ReservationResource;
+use App\Models\AccommodationRestriction;
+use App\Models\Guest;
+use App\Models\Payment;
 use App\Models\Reservation;
 use App\Models\Room;
 use App\Services\FinancialCalculationService;
 use App\Services\NotificationService;
+use App\Services\SecurityAuditLogger;
+use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class AdminReservationController extends Controller
 {
@@ -20,7 +27,7 @@ class AdminReservationController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        $query = Reservation::query()->with(['room', 'guest', 'payments']);
+        $query = Reservation::query()->with(['room', 'guest', 'payments', 'createdBy']);
 
         if ($request->filled('search')) {
             $search = $request->input('search');
@@ -69,6 +76,152 @@ class AdminReservationController extends Controller
     }
 
     /**
+     * Create a new walk-in, phone, or front desk reservation with real-time inventory validation
+     * and optional atomic initial payment recording.
+     */
+    public function store(CreateAdminReservationRequest $request): JsonResponse
+    {
+        $validated = $request->validated();
+        $user = $request->user();
+
+        $reservation = DB::transaction(function () use ($validated, $user) {
+            // Lock room record for update to serialize availability checks
+            $room = Room::query()
+                ->where('id', $validated['room_id'])
+                ->lockForUpdate()
+                ->first();
+
+            if (! $room || ! $room->is_active) {
+                abort(422, 'The selected accommodation is currently inactive or unavailable for booking.');
+            }
+
+            $checkIn = Carbon::parse($validated['check_in']);
+            $checkOut = Carbon::parse($validated['check_out']);
+            $nights = (int) $checkIn->diffInDays($checkOut);
+
+            if ($nights <= 0) {
+                abort(422, 'Check-out date must be at least one day after check-in.');
+            }
+
+            // Count overlapping reservations that block inventory
+            $overlappingCount = Reservation::query()
+                ->where('room_id', $room->id)
+                ->blocksInventory()
+                ->overlapping($validated['check_in'], $validated['check_out'])
+                ->count();
+
+            // Count active maintenance restrictions that block inventory
+            $restrictedUnits = (int) AccommodationRestriction::query()
+                ->where('room_id', $room->id)
+                ->active()
+                ->overlapping($validated['check_in'], $validated['check_out'])
+                ->sum('blocked_units');
+
+            if (($overlappingCount + $restrictedUnits) >= $room->total_inventory) {
+                abort(409, 'The selected accommodation is no longer available for the requested dates due to existing bookings or maintenance restrictions.');
+            }
+
+            // Server-derived financial calculation
+            $nightlyRate = $room->nightly_rate_php;
+            $totalPrice = bcmul((string) $nightlyRate, (string) $nights, 2);
+
+            $adults = (int) $validated['adults'];
+            $children = (int) ($validated['children'] ?? 0);
+            $totalGuests = $adults + $children;
+
+            // Resolve or record guest
+            $email = strtolower(trim($validated['guest_email']));
+            $guest = Guest::firstOrCreate(
+                ['email' => $email],
+                [
+                    'full_name' => trim($validated['guest_full_name']),
+                    'phone' => trim($validated['guest_phone']),
+                ]
+            );
+
+            // Generate unique, non-sequential public booking reference
+            do {
+                $randomSuffix = strtoupper(Str::random(4));
+                $bookingReference = 'GR-'.$checkIn->format('Ymd').'-'.$randomSuffix;
+            } while (Reservation::where('booking_reference', $bookingReference)->exists());
+
+            $initialStatus = $validated['status'] ?? 'confirmed';
+
+            // Create reservation record
+            $res = Reservation::create([
+                'booking_reference' => $bookingReference,
+                'room_id' => $room->id,
+                'guest_id' => $guest->id,
+                'check_in' => $validated['check_in'],
+                'check_out' => $validated['check_out'],
+                'adults' => $adults,
+                'children' => $children,
+                'total_guests' => $totalGuests,
+                'nights' => $nights,
+                'nightly_rate_php' => $nightlyRate,
+                'total_price_php' => $totalPrice,
+                'currency' => 'PHP',
+                'status' => $initialStatus,
+                'booking_source' => $validated['booking_source'],
+                'created_by_user_id' => $user?->id,
+                'special_requests' => $validated['special_requests'] ?? null,
+                'guest_name_snapshot' => trim($validated['guest_full_name']),
+                'guest_email_snapshot' => $email,
+                'guest_phone_snapshot' => trim($validated['guest_phone']),
+            ]);
+
+            // Optional atomic initial payment
+            if (! empty($validated['initial_payment']) && isset($validated['initial_payment']['amount']) && (float) $validated['initial_payment']['amount'] > 0) {
+                $paymentAmount = (float) $validated['initial_payment']['amount'];
+
+                if ($paymentAmount > ((float) $totalPrice + 0.01)) {
+                    abort(422, 'Initial payment amount cannot exceed the reservation total of ₱'.number_format((float) $totalPrice, 2).'.');
+                }
+
+                $payRef = 'PAY-'.Carbon::now()->format('Ymd').'-'.strtoupper(Str::random(4));
+
+                Payment::create([
+                    'reservation_id' => $res->id,
+                    'payment_reference' => $payRef,
+                    'amount' => $paymentAmount,
+                    'currency' => 'PHP',
+                    'payment_method' => $validated['initial_payment']['payment_method'],
+                    'status' => 'completed',
+                    'notes' => $validated['initial_payment']['notes'] ?? 'Initial payment recorded during reservation creation.',
+                    'recorded_by_user_id' => $user?->id,
+                ]);
+            }
+
+            return $res;
+        });
+
+        SecurityAuditLogger::log('reservation.created', 'Internal reservation created', [
+            'reservation_id' => $reservation->id,
+            'booking_reference' => $reservation->booking_reference,
+            'booking_source' => $reservation->booking_source,
+            'room_id' => $reservation->room_id,
+            'created_by_user_id' => $user?->id,
+            'status' => $reservation->status,
+        ]);
+
+        $reservation->load(['room', 'guest', 'createdBy', 'payments']);
+
+        // Dispatch automated booking confirmation and internal staff alert
+        $notificationService = app(NotificationService::class);
+        $notificationService->sendBookingConfirmation($reservation);
+        $notificationService->sendInternalNewBookingAlert($reservation);
+
+        $financialService = app(FinancialCalculationService::class);
+        $data = (new ReservationResource($reservation))->resolve(request());
+        $summary = $financialService->reservationSummary($reservation);
+
+        return response()->json([
+            'message' => 'Reservation created successfully.',
+            'data' => array_merge($data, $summary),
+        ], 201);
+    }
+
+    /**
      * Display the specified reservation with complete history and payment details.
      */
     public function show(int $id): JsonResponse
@@ -76,6 +229,7 @@ class AdminReservationController extends Controller
         $reservation = Reservation::with([
             'room',
             'guest',
+            'createdBy',
             'payments.recordedBy',
             'payments.refunds.requestedBy',
             'payments.refunds.approvedBy',

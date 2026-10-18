@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\CreateReservationRequest;
 use App\Http\Resources\ReservationResource;
+use App\Models\AccommodationRestriction;
 use App\Models\Guest;
 use App\Models\Reservation;
 use App\Models\Room;
@@ -50,7 +51,14 @@ class ReservationController extends Controller
                 ->overlapping($validated['check_in'], $validated['check_out'])
                 ->count();
 
-            if ($overlappingCount >= $room->total_inventory) {
+            // Count active maintenance restrictions that block inventory
+            $restrictedUnits = (int) AccommodationRestriction::query()
+                ->where('room_id', $room->id)
+                ->active()
+                ->overlapping($validated['check_in'], $validated['check_out'])
+                ->sum('blocked_units');
+
+            if (($overlappingCount + $restrictedUnits) >= $room->total_inventory) {
                 abort(409, 'The selected accommodation is no longer available for the requested dates.');
             }
 

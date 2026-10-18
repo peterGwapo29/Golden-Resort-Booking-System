@@ -43,10 +43,10 @@ export default function RoomFilters({
               role="tab"
               aria-selected={isSelected}
               onClick={() => onCategoryChange(cat.value)}
-              className={`rounded-full px-4 py-2 text-xs font-medium tracking-wide transition-colors focus-visible:outline-2 focus-visible:outline-gold sm:text-sm ${
+              className={`rounded-full px-4 py-2 text-xs font-medium tracking-wide transition-all focus-visible:outline-2 focus-visible:outline-gold sm:text-sm ${
                 isSelected
                   ? "bg-forest text-white shadow-sm"
-                  : "bg-white text-ink/75 hover:bg-forest/5 hover:text-forest"
+                  : "bg-white text-ink/80 border border-forest/15 hover:bg-forest/5 hover:text-forest"
               }`}
             >
               {cat.label}
@@ -55,21 +55,24 @@ export default function RoomFilters({
         })}
       </div>
 
-      {/* Guest Count & Reset */}
-      <div className="flex items-center gap-3 self-end sm:self-auto">
-        <label htmlFor="filter-capacity" className="text-xs font-medium text-muted">
-          Capacity:
-        </label>
-        <select
-          id="filter-capacity"
-          value={minGuests}
-          onChange={(e) => onMinGuestsChange(Number(e.target.value))}
-          className="rounded-lg border border-forest/20 bg-white px-3 py-1.5 text-xs font-medium text-ink focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold sm:text-sm"
-        >
-          <option value={0}>Any Guests</option>
-          <option value={2}>2+ Guests</option>
-          <option value={4}>4+ Guests</option>
-        </select>
+      {/* Guest Count & Reset Toolbar */}
+      <div className="flex flex-wrap items-center justify-between gap-3 sm:justify-end">
+        <div className="flex items-center gap-2">
+          <label htmlFor="filter-capacity" className="text-xs font-medium text-muted">
+            Capacity:
+          </label>
+          <select
+            id="filter-capacity"
+            value={minGuests}
+            onChange={(e) => onMinGuestsChange(Number(e.target.value))}
+            className="rounded-lg border border-forest/20 bg-white px-3 py-1.5 text-xs font-medium text-ink focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold sm:text-sm"
+          >
+            <option value={0}>Any Guests</option>
+            <option value={2}>2+ Guests</option>
+            <option value={4}>4+ Guests</option>
+            <option value={6}>6+ Guests</option>
+          </select>
+        </div>
 
         {hasActiveFilters && (
           <button
@@ -77,11 +80,11 @@ export default function RoomFilters({
             onClick={onReset}
             className="text-xs font-medium text-gold hover:underline focus-visible:outline-2 focus-visible:outline-gold"
           >
-            Reset
+            Reset Filters
           </button>
         )}
 
-        <span className="text-xs text-muted">
+        <span className="rounded-md bg-forest/5 px-2.5 py-1 text-xs font-medium text-muted">
           Showing {filteredCount} of {totalCount}
         </span>
       </div>

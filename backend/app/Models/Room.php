@@ -105,4 +105,39 @@ class Room extends Model
     {
         return $this->housekeeping_status === 'maintenance';
     }
+
+    /**
+     * Maintenance requests for this room.
+     */
+    public function maintenanceRequests(): HasMany
+    {
+        return $this->hasMany(MaintenanceRequest::class);
+    }
+
+    /**
+     * Operational availability restrictions for this room.
+     */
+    public function restrictions(): HasMany
+    {
+        return $this->hasMany(AccommodationRestriction::class);
+    }
+
+    /**
+     * Active availability restrictions for this room.
+     */
+    public function activeRestrictions(): HasMany
+    {
+        return $this->hasMany(AccommodationRestriction::class)->where('status', 'active');
+    }
+
+    /**
+     * Compute blocked maintenance units for a stay range.
+     */
+    public function getBlockedMaintenanceUnits(string $checkIn, string $checkOut): int
+    {
+        return (int) $this->restrictions()
+            ->active()
+            ->overlapping($checkIn, $checkOut)
+            ->sum('blocked_units');
+    }
 }

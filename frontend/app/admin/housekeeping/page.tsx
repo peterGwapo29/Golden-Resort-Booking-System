@@ -8,12 +8,19 @@ import {
   createAdminHousekeepingTask,
   updateAdminHousekeepingTaskStatus,
   getAdminHousekeepingStaff,
+  startHousekeepingTask,
+  logHousekeepingProgress,
+  submitHousekeepingReview,
+  reviewHousekeepingTask,
+  getHousekeepingHistory,
   type HousekeepingRoom,
   type HousekeepingTask,
   type HousekeepingMetrics,
   type HousekeepingStaffMember,
+  type HousekeepingHistory,
   type PaginatedResult,
 } from "@/lib/admin-api";
+import { useAdminAuth } from "@/lib/admin-auth";
 import { formatPhp } from "@/lib/booking-utils";
 import {
   SparklesIcon,
@@ -31,7 +38,37 @@ import {
 } from "@/components/ui/Icons";
 
 export default function AdminHousekeepingPage() {
+  const { user } = useAdminAuth();
+  const isSupervisor = user?.role === "admin" || user?.role === "manager";
   const [activeTab, setActiveTab] = useState<"rooms" | "tasks">("rooms");
+
+  // Workflow Modals State
+  const [progressModalOpen, setProgressModalOpen] = useState(false);
+  const [progressTask, setProgressTask] = useState<HousekeepingTask | null>(null);
+  const [progressNotes, setProgressNotes] = useState("");
+  const [progressFile, setProgressFile] = useState<File | null>(null);
+  const [progressSubmitting, setProgressSubmitting] = useState(false);
+  const [progressError, setProgressError] = useState<string | null>(null);
+
+  const [submitReviewModalOpen, setSubmitReviewModalOpen] = useState(false);
+  const [submitReviewTask, setSubmitReviewTask] = useState<HousekeepingTask | null>(null);
+  const [submitReviewNotes, setSubmitReviewNotes] = useState("");
+  const [submitReviewFile, setSubmitReviewFile] = useState<File | null>(null);
+  const [submitReviewSubmitting, setSubmitReviewSubmitting] = useState(false);
+  const [submitReviewError, setSubmitReviewError] = useState<string | null>(null);
+
+  const [reviewModalOpen, setReviewModalOpen] = useState(false);
+  const [reviewTask, setReviewTask] = useState<HousekeepingTask | null>(null);
+  const [reviewAction, setReviewAction] = useState<"approve" | "reject">("approve");
+  const [reviewNotes, setReviewNotes] = useState("");
+  const [reviewRoomCondition, setReviewRoomCondition] = useState("inspected");
+  const [reviewSubmitting, setReviewSubmitting] = useState(false);
+  const [reviewError, setReviewError] = useState<string | null>(null);
+
+  const [historyModalOpen, setHistoryModalOpen] = useState(false);
+  const [historyTask, setHistoryTask] = useState<HousekeepingTask | null>(null);
+  const [historyLogs, setHistoryLogs] = useState<HousekeepingHistory[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
 
   // Rooms Board State
   const [rooms, setRooms] = useState<HousekeepingRoom[]>([]);
@@ -212,6 +249,103 @@ export default function AdminHousekeepingPage() {
     }
   };
 
+  // Workflow Handlers
+  const handleStartTask = async (taskId: number) => {
+    try {
+      await startHousekeepingTask(taskId);
+      setSuccessBanner("Cleaning started. Task is now in progress.");
+      fetchTasks();
+      fetchRooms();
+    } catch (err: any) {
+      alert(err.message || "Failed to start cleaning task.");
+    }
+  };
+
+  const handleProgressSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!progressTask) return;
+    setProgressSubmitting(true);
+    setProgressError(null);
+    try {
+      await logHousekeepingProgress(progressTask.id, progressNotes, progressFile || undefined);
+      setSuccessBanner("Housekeeping progress logged successfully.");
+      setProgressModalOpen(false);
+      setProgressTask(null);
+      setProgressNotes("");
+      setProgressFile(null);
+      fetchTasks();
+    } catch (err: any) {
+      setProgressError(err.message || "Failed to log progress.");
+    } finally {
+      setProgressSubmitting(false);
+    }
+  };
+
+  const handleSubmitReview = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!submitReviewTask) return;
+    setSubmitReviewSubmitting(true);
+    setSubmitReviewError(null);
+    try {
+      await submitHousekeepingReview(submitReviewTask.id, submitReviewNotes, submitReviewFile || undefined);
+      setSuccessBanner("Task submitted for supervisor inspection.");
+      setSubmitReviewModalOpen(false);
+      setSubmitReviewTask(null);
+      setSubmitReviewNotes("");
+      setSubmitReviewFile(null);
+      fetchTasks();
+      fetchRooms();
+    } catch (err: any) {
+      setSubmitReviewError(err.message || "Failed to submit review.");
+    } finally {
+      setSubmitReviewSubmitting(false);
+    }
+  };
+
+  const handleReviewDecisionSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!reviewTask) return;
+    setReviewSubmitting(true);
+    setReviewError(null);
+    try {
+      await reviewHousekeepingTask(
+        reviewTask.id,
+        reviewAction,
+        reviewNotes,
+        reviewAction === "approve" ? reviewRoomCondition : undefined
+      );
+      setSuccessBanner(
+        reviewAction === "approve"
+          ? "Cleaning task approved and marked completed."
+          : "Work returned to staff with revision feedback."
+      );
+      setReviewModalOpen(false);
+      setReviewTask(null);
+      setReviewNotes("");
+      fetchTasks();
+      fetchRooms();
+    } catch (err: any) {
+      setReviewError(err.message || "Failed to submit supervisor review.");
+    } finally {
+      setReviewSubmitting(false);
+    }
+  };
+
+  const handleOpenHistory = async (task: HousekeepingTask) => {
+    setHistoryTask(task);
+    setHistoryModalOpen(true);
+    setHistoryLoading(true);
+    try {
+      const res = await getHousekeepingHistory(task.id);
+      setHistoryLogs(res.data || res.history || []);
+    } catch (err: any) {
+      console.error(err);
+      setHistoryLogs([]);
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
   // Condition Badge Helpers
   const getConditionBadge = (status: string) => {
     switch (status) {
@@ -291,20 +425,22 @@ export default function AdminHousekeepingPage() {
           </p>
         </div>
 
-        {/* Action Button */}
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={() => {
-              setTaskModalOpen(true);
-              setTaskFormError(null);
-            }}
-            className="inline-flex items-center gap-2 rounded-xl bg-forest px-4 py-2.5 text-xs font-semibold uppercase tracking-wider text-gold shadow-sm hover:bg-forest-dark transition-colors"
-          >
-            <PlusIcon className="h-4 w-4" />
-            Assign Cleaning Task
-          </button>
-        </div>
+        {/* Action Button (Supervisor Only) */}
+        {isSupervisor && (
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                setTaskModalOpen(true);
+                setTaskFormError(null);
+              }}
+              className="inline-flex items-center gap-2 rounded-xl bg-forest px-4 py-2.5 text-xs font-semibold uppercase tracking-wider text-gold shadow-sm hover:bg-forest-dark transition-colors"
+            >
+              <PlusIcon className="h-4 w-4" />
+              Assign Cleaning Task
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Success Banner */}
@@ -542,34 +678,43 @@ export default function AdminHousekeepingPage() {
                   </div>
 
                   {/* Card Bottom Controls */}
-                  <div className="mt-5 border-t border-slate-100 pt-3 flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSelectedRoom(room);
-                        setNewRoomStatus(room.housekeeping_status);
-                        setStatusNotes(room.housekeeping_notes || "");
-                        setStatusModalOpen(true);
-                        setStatusFormError(null);
-                      }}
-                      className="flex-1 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-center text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors"
-                    >
-                      Update Condition
-                    </button>
+                  {isSupervisor ? (
+                    <div className="mt-5 border-t border-slate-100 pt-3 flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedRoom(room);
+                          setNewRoomStatus(room.housekeeping_status);
+                          setStatusNotes(room.housekeeping_notes || "");
+                          setStatusModalOpen(true);
+                          setStatusFormError(null);
+                        }}
+                        className="flex-1 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-center text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors"
+                      >
+                        Update Condition
+                      </button>
 
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setTaskRoomId(room.id);
-                        setTaskType("cleaning");
-                        setTaskPriority("normal");
-                        setTaskModalOpen(true);
-                      }}
-                      className="rounded-lg bg-forest/10 px-3 py-1.5 text-xs font-semibold text-forest hover:bg-forest/20 transition-colors"
-                    >
-                      + Task
-                    </button>
-                  </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setTaskRoomId(room.id);
+                          setTaskType("cleaning");
+                          setTaskPriority("normal");
+                          setTaskModalOpen(true);
+                        }}
+                        className="rounded-lg bg-forest/10 px-3 py-1.5 text-xs font-semibold text-forest hover:bg-forest/20 transition-colors"
+                      >
+                        + Task
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="mt-5 border-t border-slate-100 pt-3 flex items-center justify-between text-[0.7rem] text-slate-500">
+                      <span>Condition managed by supervisors</span>
+                      {room.active_task && (
+                        <span className="font-semibold text-forest">Active task</span>
+                      )}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -600,6 +745,7 @@ export default function AdminHousekeepingPage() {
                 <option value="all">All Task Statuses</option>
                 <option value="pending">Pending</option>
                 <option value="in_progress">In Progress</option>
+                <option value="pending_review">Pending Review</option>
                 <option value="completed">Completed</option>
                 <option value="cancelled">Cancelled</option>
               </select>
@@ -717,6 +863,8 @@ export default function AdminHousekeepingPage() {
                             className={`rounded-full px-2.5 py-0.5 text-[0.65rem] font-semibold uppercase ${
                               task.status === "completed"
                                 ? "bg-emerald-100 text-emerald-800"
+                                : task.status === "pending_review"
+                                ? "bg-purple-100 text-purple-800 font-bold border border-purple-200"
                                 : task.status === "in_progress"
                                 ? "bg-sky-100 text-sky-800"
                                 : task.status === "cancelled"
@@ -727,33 +875,95 @@ export default function AdminHousekeepingPage() {
                             {task.status.replace("_", " ")}
                           </span>
                         </td>
-                        <td className="px-4 py-3 text-slate-600 max-w-xs truncate">
-                          {task.notes || <span className="text-stone-600 italic">No notes</span>}
+                        <td className="px-4 py-3 text-slate-600 max-w-xs">
+                          <p className="truncate">{task.notes || <span className="text-stone-600 italic">No notes</span>}</p>
+                          {task.evidence_url && (
+                            <span className="mt-0.5 inline-flex items-center gap-1 text-[0.65rem] font-semibold text-forest">
+                              📸 Photo Evidence
+                            </span>
+                          )}
                         </td>
                         <td className="px-4 py-3 text-right space-x-1.5 whitespace-nowrap">
+                          {/* Pending -> Start Cleaning */}
                           {task.status === "pending" && (
                             <button
                               type="button"
-                              onClick={() => handleUpdateTaskStatus(task.id, "in_progress")}
+                              onClick={() => handleStartTask(task.id)}
                               className="rounded bg-sky-50 px-2 py-1 text-xs font-semibold text-sky-700 hover:bg-sky-100 transition-colors"
                             >
                               Start
                             </button>
                           )}
-                          {(task.status === "pending" || task.status === "in_progress") && (
-                            <button
-                              type="button"
-                              onClick={() => handleUpdateTaskStatus(task.id, "completed")}
-                              className="rounded bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 transition-colors"
-                            >
-                              Mark Done
-                            </button>
+
+                          {/* In Progress -> Log Progress & Submit for Inspection */}
+                          {task.status === "in_progress" && (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setProgressTask(task);
+                                  setProgressNotes("");
+                                  setProgressFile(null);
+                                  setProgressError(null);
+                                  setProgressModalOpen(true);
+                                }}
+                                className="rounded bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-700 hover:bg-amber-100 transition-colors"
+                              >
+                                Progress
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSubmitReviewTask(task);
+                                  setSubmitReviewNotes("");
+                                  setSubmitReviewFile(null);
+                                  setSubmitReviewError(null);
+                                  setSubmitReviewModalOpen(true);
+                                }}
+                                className="rounded bg-indigo-50 px-2 py-1 text-xs font-semibold text-indigo-700 hover:bg-indigo-100 transition-colors"
+                              >
+                                Submit Review
+                              </button>
+                            </>
                           )}
-                          {task.status !== "completed" && task.status !== "cancelled" && (
+
+                          {/* Pending Review -> Supervisor Review Modal (supervisors only) */}
+                          {task.status === "pending_review" && (
+                            isSupervisor ? (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setReviewTask(task);
+                                  setReviewAction("approve");
+                                  setReviewNotes("");
+                                  setReviewRoomCondition("inspected");
+                                  setReviewError(null);
+                                  setReviewModalOpen(true);
+                                }}
+                                className="rounded bg-purple-100 px-2.5 py-1 text-xs font-bold text-purple-800 hover:bg-purple-200 transition-colors"
+                              >
+                                Inspect & Review
+                              </button>
+                            ) : (
+                              <span className="text-[0.65rem] text-purple-700 font-semibold italic">Awaiting Inspection</span>
+                            )
+                          )}
+
+                          {/* History timeline modal */}
+                          <button
+                            type="button"
+                            onClick={() => handleOpenHistory(task)}
+                            className="rounded bg-slate-100 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-200 transition-colors"
+                          >
+                            History
+                          </button>
+
+                          {/* Supervisor Cancel */}
+                          {isSupervisor && task.status !== "completed" && task.status !== "cancelled" && (
                             <button
                               type="button"
                               onClick={() => handleUpdateTaskStatus(task.id, "cancelled")}
-                              className="rounded bg-slate-100 px-2 py-1 text-xs font-medium text-slate-600 hover:bg-slate-200 transition-colors"
+                              className="rounded bg-rose-50 px-2 py-1 text-xs font-medium text-rose-600 hover:bg-rose-100 transition-colors"
                             >
                               Cancel
                             </button>
@@ -1073,6 +1283,376 @@ export default function AdminHousekeepingPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+      {/* ========================================================
+          MODAL: LOG HOUSEKEEPING PROGRESS
+          ======================================================== */}
+      {progressModalOpen && progressTask && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-xs" onClick={() => setProgressModalOpen(false)} />
+          <div className="relative z-50 w-full max-w-md rounded-2xl bg-white shadow-2xl overflow-hidden flex flex-col">
+            <div className="border-b border-slate-200 bg-forest p-5 text-white flex items-center justify-between">
+              <div>
+                <span className="text-[0.7rem] font-semibold uppercase tracking-wider text-gold">Housekeeping Progress</span>
+                <h3 className="font-serif text-lg font-bold">{progressTask.room?.name || `Room #${progressTask.room_id}`}</h3>
+              </div>
+              <button type="button" onClick={() => setProgressModalOpen(false)} className="text-white/80 hover:text-white">
+                <CloseIcon className="h-5 w-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleProgressSubmit} className="p-6 space-y-4 text-xs">
+              {progressError && (
+                <div className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-rose-800">
+                  {progressError}
+                </div>
+              )}
+
+              <div>
+                <label className="block text-[0.7rem] font-semibold uppercase tracking-wider text-stone-600 mb-1">
+                  Progress Notes *
+                </label>
+                <textarea
+                  required
+                  rows={3}
+                  value={progressNotes}
+                  onChange={(e) => setProgressNotes(e.target.value)}
+                  placeholder="Describe cleaning progress, items sanitized, linen refreshed, or notes for the team..."
+                  className="w-full rounded-lg border border-slate-300 p-2 text-xs focus:border-forest focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[0.7rem] font-semibold uppercase tracking-wider text-stone-600 mb-1">
+                  Attach Progress Photo (Optional)
+                </label>
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  onChange={(e) => {
+                    if (e.target.files && e.target.files[0]) {
+                      setProgressFile(e.target.files[0]);
+                    }
+                  }}
+                  className="block w-full text-xs text-slate-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-forest/10 file:text-forest file:font-semibold"
+                />
+              </div>
+
+              <div className="border-t border-slate-200 pt-3 flex gap-3">
+                <button
+                  type="submit"
+                  disabled={progressSubmitting}
+                  className="flex-1 rounded-xl bg-forest py-2.5 text-center font-semibold uppercase tracking-wider text-gold hover:bg-forest-dark transition-colors disabled:opacity-50"
+                >
+                  {progressSubmitting ? "Logging Progress..." : "Save Progress Note"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setProgressModalOpen(false)}
+                  className="rounded-xl border border-slate-300 px-4 py-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================
+          MODAL: SUBMIT FOR SUPERVISOR REVIEW
+          ======================================================== */}
+      {submitReviewModalOpen && submitReviewTask && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-xs" onClick={() => setSubmitReviewModalOpen(false)} />
+          <div className="relative z-50 w-full max-w-md rounded-2xl bg-white shadow-2xl overflow-hidden flex flex-col">
+            <div className="border-b border-slate-200 bg-indigo-900 p-5 text-white flex items-center justify-between">
+              <div>
+                <span className="text-[0.7rem] font-semibold uppercase tracking-wider text-indigo-200">Quality Inspection</span>
+                <h3 className="font-serif text-lg font-bold">Submit for Supervisor Review</h3>
+              </div>
+              <button type="button" onClick={() => setSubmitReviewModalOpen(false)} className="text-white/80 hover:text-white">
+                <CloseIcon className="h-5 w-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmitReview} className="p-6 space-y-4 text-xs">
+              {submitReviewError && (
+                <div className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-rose-800">
+                  {submitReviewError}
+                </div>
+              )}
+
+              <p className="text-slate-600 leading-relaxed text-[0.75rem]">
+                Submitting this task sets its status to <strong>Pending Review</strong>. A resort manager or supervisor will inspect the room before marking it certified ready.
+              </p>
+
+              <div>
+                <label className="block text-[0.7rem] font-semibold uppercase tracking-wider text-stone-600 mb-1">
+                  Completion Checklist & Notes *
+                </label>
+                <textarea
+                  required
+                  rows={3}
+                  value={submitReviewNotes}
+                  onChange={(e) => setSubmitReviewNotes(e.target.value)}
+                  placeholder="Detail completion: bed linen sanitized, bathrooms stocked, espresso restocked, balcony wiped..."
+                  className="w-full rounded-lg border border-slate-300 p-2 text-xs focus:border-forest focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[0.7rem] font-semibold uppercase tracking-wider text-stone-600 mb-1">
+                  Attach Inspection Photo Proof (Optional)
+                </label>
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  onChange={(e) => {
+                    if (e.target.files && e.target.files[0]) {
+                      setSubmitReviewFile(e.target.files[0]);
+                    }
+                  }}
+                  className="block w-full text-xs text-slate-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-indigo-50 file:text-indigo-700 file:font-semibold"
+                />
+              </div>
+
+              <div className="border-t border-slate-200 pt-3 flex gap-3">
+                <button
+                  type="submit"
+                  disabled={submitReviewSubmitting}
+                  className="flex-1 rounded-xl bg-indigo-600 py-2.5 text-center font-semibold uppercase tracking-wider text-white hover:bg-indigo-700 transition-colors disabled:opacity-50"
+                >
+                  {submitReviewSubmitting ? "Submitting..." : "Submit to Supervisor"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSubmitReviewModalOpen(false)}
+                  className="rounded-xl border border-slate-300 px-4 py-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================
+          MODAL: SUPERVISOR INSPECTION & REVIEW (Approve / Reject)
+          ======================================================== */}
+      {reviewModalOpen && reviewTask && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-xs" onClick={() => setReviewModalOpen(false)} />
+          <div className="relative z-50 w-full max-w-lg rounded-2xl bg-white shadow-2xl overflow-hidden flex flex-col">
+            <div className={`p-5 text-white flex items-center justify-between ${reviewAction === "approve" ? "bg-forest" : "bg-rose-800"}`}>
+              <div>
+                <span className="text-[0.7rem] font-semibold uppercase tracking-wider text-gold">Supervisor Sign-off</span>
+                <h3 className="font-serif text-lg font-bold">
+                  {reviewAction === "approve" ? "Approve & Complete Task" : "Request Cleaning Rework"}
+                </h3>
+              </div>
+              <button type="button" onClick={() => setReviewModalOpen(false)} className="text-white/80 hover:text-white">
+                <CloseIcon className="h-5 w-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleReviewDecisionSubmit} className="p-6 space-y-4 text-xs">
+              {reviewError && (
+                <div className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-rose-800">
+                  {reviewError}
+                </div>
+              )}
+
+              {/* Task summary */}
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 space-y-1 text-[0.75rem]">
+                <div className="flex justify-between font-semibold text-slate-800">
+                  <span>{reviewTask.room?.name || `Room #${reviewTask.room_id}`}</span>
+                  <span className="capitalize">{reviewTask.task_type.replace("_", " ")}</span>
+                </div>
+                <p className="text-slate-600">Assigned: {reviewTask.assigned_to?.name || "Unassigned"}</p>
+                {reviewTask.notes && (
+                  <p className="text-slate-700 italic border-t border-slate-200 pt-1">Notes: &ldquo;{reviewTask.notes}&rdquo;</p>
+                )}
+                {reviewTask.evidence_url && (
+                  <div className="border-t border-slate-200 pt-2">
+                    <span className="font-semibold text-slate-700">Submitted Evidence Photo:</span>
+                    <div className="mt-1">
+                      <a href={reviewTask.evidence_url} target="_blank" rel="noreferrer" className="inline-block text-forest underline hover:text-forest-dark font-medium">
+                        View Uploaded Evidence Photo ↗
+                      </a>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Decision Toggle */}
+              <div>
+                <label className="block text-[0.7rem] font-semibold uppercase tracking-wider text-stone-600 mb-1.5">
+                  Inspection Decision *
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setReviewAction("approve")}
+                    className={`rounded-xl border py-2 text-xs font-semibold transition-all ${
+                      reviewAction === "approve"
+                        ? "border-emerald-500 bg-emerald-50 text-emerald-800 ring-2 ring-emerald-400"
+                        : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+                    }`}
+                  >
+                    ✓ Approve & Complete
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setReviewAction("reject")}
+                    className={`rounded-xl border py-2 text-xs font-semibold transition-all ${
+                      reviewAction === "reject"
+                        ? "border-rose-500 bg-rose-50 text-rose-800 ring-2 ring-rose-400"
+                        : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+                    }`}
+                  >
+                    ✕ Request Rework
+                  </button>
+                </div>
+              </div>
+
+              {/* If Approving: choose Room Condition */}
+              {reviewAction === "approve" && (
+                <div>
+                  <label className="block text-[0.7rem] font-semibold uppercase tracking-wider text-stone-600 mb-1">
+                    Update Accommodation Condition To *
+                  </label>
+                  <select
+                    value={reviewRoomCondition}
+                    onChange={(e) => setReviewRoomCondition(e.target.value)}
+                    className="w-full rounded-lg border border-slate-300 p-2 text-xs focus:border-forest focus:outline-none"
+                  >
+                    <option value="inspected">Inspected (Certified Ready for Guest Check-in)</option>
+                    <option value="clean">Clean (Sanitized, Standard)</option>
+                  </select>
+                </div>
+              )}
+
+              {/* Review notes */}
+              <div>
+                <label className="block text-[0.7rem] font-semibold uppercase tracking-wider text-stone-600 mb-1">
+                  Supervisor Feedback & Remarks {reviewAction === "reject" ? "*" : "(Optional)"}
+                </label>
+                <textarea
+                  required={reviewAction === "reject"}
+                  rows={3}
+                  value={reviewNotes}
+                  onChange={(e) => setReviewNotes(e.target.value)}
+                  placeholder={
+                    reviewAction === "reject"
+                      ? "Explain what needs rework before room can be certified..."
+                      : "Inspection verified standards met..."
+                  }
+                  className="w-full rounded-lg border border-slate-300 p-2 text-xs focus:border-forest focus:outline-none"
+                />
+              </div>
+
+              <div className="border-t border-slate-200 pt-3 flex gap-3">
+                <button
+                  type="submit"
+                  disabled={reviewSubmitting}
+                  className={`flex-1 rounded-xl py-2.5 text-center font-semibold uppercase tracking-wider text-white transition-colors disabled:opacity-50 ${
+                    reviewAction === "approve" ? "bg-forest hover:bg-forest-dark" : "bg-rose-700 hover:bg-rose-800"
+                  }`}
+                >
+                  {reviewSubmitting ? "Submitting..." : reviewAction === "approve" ? "Approve Task" : "Return for Rework"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setReviewModalOpen(false)}
+                  className="rounded-xl border border-slate-300 px-4 py-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================
+          MODAL: TASK AUDIT HISTORY TIMELINE
+          ======================================================== */}
+      {historyModalOpen && historyTask && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-xs" onClick={() => setHistoryModalOpen(false)} />
+          <div className="relative z-50 w-full max-w-lg rounded-2xl bg-white shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
+            <div className="border-b border-slate-200 bg-forest p-5 text-white flex items-center justify-between">
+              <div>
+                <span className="text-[0.7rem] font-semibold uppercase tracking-wider text-gold">Audit Trail</span>
+                <h3 className="font-serif text-lg font-bold">
+                  Task History: {historyTask.room?.name || `Room #${historyTask.room_id}`}
+                </h3>
+              </div>
+              <button type="button" onClick={() => setHistoryModalOpen(false)} className="text-white/80 hover:text-white">
+                <CloseIcon className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="p-6 overflow-y-auto space-y-4 text-xs">
+              {historyLoading ? (
+                <div className="py-8 text-center text-slate-500">
+                  <div className="mx-auto h-6 w-6 animate-spin rounded-full border-2 border-forest border-t-gold mb-2" />
+                  Loading audit logs...
+                </div>
+              ) : historyLogs.length === 0 ? (
+                <p className="py-8 text-center text-slate-500 italic">No history records logged for this task yet.</p>
+              ) : (
+                <div className="relative border-l-2 border-forest/20 ml-3 pl-4 space-y-6">
+                  {historyLogs.map((log) => (
+                    <div key={log.id} className="relative">
+                      <div className="absolute -left-[21px] top-1 h-2.5 w-2.5 rounded-full bg-forest ring-4 ring-white" />
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-semibold capitalize text-forest">
+                          {log.action.replace("_", " ")}
+                        </span>
+                        <span className="text-[0.65rem] text-slate-400 font-mono">
+                          {new Date(log.created_at).toLocaleString()}
+                        </span>
+                      </div>
+                      <p className="text-[0.7rem] text-slate-600 mt-0.5">
+                        By: <strong className="text-slate-800">{log.actor?.name || log.user?.name || `User #${log.actor_user_id || log.user_id}`}</strong> ({log.actor?.role || log.user?.role || "staff"})
+                      </p>
+                      {log.from_status && log.to_status && (
+                        <div className="mt-1 text-[0.65rem] text-slate-500">
+                          Status: <span className="font-mono">{log.from_status}</span> → <span className="font-mono font-bold text-slate-700">{log.to_status}</span>
+                        </div>
+                      )}
+                      {log.notes && (
+                        <p className="mt-1.5 rounded-lg bg-slate-50 p-2.5 text-slate-700 italic border border-slate-100">
+                          &ldquo;{log.notes}&rdquo;
+                        </p>
+                      )}
+                      {log.evidence_url && (
+                        <div className="mt-2">
+                          <a href={log.evidence_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[0.7rem] font-semibold text-forest underline">
+                            📸 View Attached Photo Evidence ↗
+                          </a>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="border-t border-slate-200 bg-slate-50 p-4 text-right">
+              <button
+                type="button"
+                onClick={() => setHistoryModalOpen(false)}
+                className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100"
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\AccommodationRestriction;
 use App\Models\Reservation;
 use App\Models\Room;
 use App\Services\FinancialCalculationService;
@@ -96,6 +97,23 @@ class AdminCalendarController extends Controller
 
         $allReservations = $resQuery->orderBy('check_in')->get();
 
+        // Query active accommodation restrictions that overlap the range
+        $restrQuery = AccommodationRestriction::query()
+            ->active()
+            ->where('start_date', '<=', $endDateStr)
+            ->where(function ($q) use ($startDateStr) {
+                $q->whereNull('end_date')
+                    ->orWhere('end_date', '>', $startDateStr);
+            })
+            ->with(['maintenanceRequest']);
+
+        if ($request->filled('room_id')) {
+            $restrQuery->where('room_id', $request->input('room_id'));
+        }
+
+        $allRestrictions = $restrQuery->get();
+        $restrictionsByRoom = $allRestrictions->groupBy('room_id');
+
         // Generate date period
         $period = CarbonPeriod::create($startDate, $endDate);
         $dateStrings = [];
@@ -125,6 +143,7 @@ class AdminCalendarController extends Controller
                 'arrivals' => 0,
                 'departures' => 0,
                 'occupied_units' => 0,
+                'restricted_units' => 0,
                 'total_capacity' => 0,
             ];
         }
@@ -135,6 +154,7 @@ class AdminCalendarController extends Controller
             $isActive = (bool) $room->is_active;
 
             $roomBlocks = $blockingReservationsByRoom[$room->id] ?? [];
+            $roomRestrictions = $restrictionsByRoom->get($room->id, collect());
 
             foreach ($dateStrings as $dateStr) {
                 // Count bookings active on dateStr: check_in <= dateStr < check_out
@@ -145,16 +165,38 @@ class AdminCalendarController extends Controller
                     }
                 }
 
-                $availableUnits = max(0, $totalInventory - $bookedCount);
+                // Count active maintenance restrictions on dateStr
+                $restrictedCount = 0;
+                $activeRestrictionsOnDate = [];
+                foreach ($roomRestrictions as $restr) {
+                    $rStart = $restr->start_date ? Carbon::parse($restr->start_date)->toDateString() : null;
+                    $rEnd = $restr->end_date ? Carbon::parse($restr->end_date)->toDateString() : null;
+                    if ($rStart <= $dateStr && ($rEnd === null || $rEnd > $dateStr)) {
+                        $restrictedCount += $restr->blocked_units;
+                        $activeRestrictionsOnDate[] = [
+                            'id' => $restr->id,
+                            'restriction_number' => $restr->restriction_number,
+                            'title' => $restr->title,
+                            'restriction_type' => $restr->restriction_type,
+                            'reason' => $restr->reason,
+                            'blocked_units' => $restr->blocked_units,
+                            'maintenance_request_id' => $restr->maintenance_request_id,
+                        ];
+                    }
+                }
+
+                $availableUnits = max(0, $totalInventory - $bookedCount - $restrictedCount);
 
                 $isMaintenanceBlocked = ! $isActive || $room->housekeeping_status === 'maintenance';
 
                 $status = 'available';
                 if ($isMaintenanceBlocked) {
                     $status = 'blocked';
+                } elseif ($restrictedCount >= $totalInventory) {
+                    $status = 'maintenance_blocked';
                 } elseif ($availableUnits === 0) {
                     $status = 'fully_booked';
-                } elseif ($bookedCount > 0) {
+                } elseif ($bookedCount > 0 || $restrictedCount > 0) {
                     $status = 'partially_booked';
                 }
 
@@ -162,13 +204,16 @@ class AdminCalendarController extends Controller
                     'date' => $dateStr,
                     'total_inventory' => $totalInventory,
                     'booked_units' => $bookedCount,
+                    'restricted_units' => $restrictedCount,
                     'available_units' => $availableUnits,
                     'status' => $status,
+                    'restrictions' => $activeRestrictionsOnDate,
                 ];
 
                 if (! $isMaintenanceBlocked) {
                     $dailySummaries[$dateStr]['total_capacity'] += $totalInventory;
                     $dailySummaries[$dateStr]['occupied_units'] += $bookedCount;
+                    $dailySummaries[$dateStr]['restricted_units'] += $restrictedCount;
                 }
             }
 
@@ -181,6 +226,18 @@ class AdminCalendarController extends Controller
                 'nightly_rate_php' => (float) $room->nightly_rate_php,
                 'is_active' => $isActive,
                 'housekeeping_status' => $room->housekeeping_status ?? 'clean',
+                'active_restrictions' => $roomRestrictions->map(function ($r) {
+                    return [
+                        'id' => $r->id,
+                        'restriction_number' => $r->restriction_number,
+                        'title' => $r->title,
+                        'restriction_type' => $r->restriction_type,
+                        'start_date' => Carbon::parse($r->start_date)->toDateString(),
+                        'end_date' => $r->end_date ? Carbon::parse($r->end_date)->toDateString() : null,
+                        'is_indefinite' => (bool) $r->is_indefinite,
+                        'blocked_units' => $r->blocked_units,
+                    ];
+                })->values(),
                 'schedule' => $roomSchedule,
             ];
         }
@@ -314,8 +371,18 @@ class AdminCalendarController extends Controller
                 ->with(['guest'])
                 ->get();
 
-            // Find peak simultaneous booked units during any single night of the stay
+            // Find all active restrictions that overlap this stay
+            $overlappingRestrictions = AccommodationRestriction::query()
+                ->where('room_id', $room->id)
+                ->active()
+                ->overlapping($checkInStr, $checkOutStr)
+                ->get();
+
+            // Find peak simultaneous blockers (booked + restricted) during any single night of the stay
             $peakBooked = 0;
+            $peakRestricted = 0;
+            $peakTotalBlockers = 0;
+
             foreach ($stayNights as $night) {
                 $nightBooked = 0;
                 foreach ($overlappingRes as $res) {
@@ -325,13 +392,29 @@ class AdminCalendarController extends Controller
                         $nightBooked++;
                     }
                 }
+
+                $nightRestricted = 0;
+                foreach ($overlappingRestrictions as $restr) {
+                    $rIn = Carbon::parse($restr->start_date)->toDateString();
+                    $rOut = $restr->end_date ? Carbon::parse($restr->end_date)->toDateString() : null;
+                    if ($rIn <= $night && ($rOut === null || $rOut > $night)) {
+                        $nightRestricted += $restr->blocked_units;
+                    }
+                }
+
                 if ($nightBooked > $peakBooked) {
                     $peakBooked = $nightBooked;
+                }
+                if ($nightRestricted > $peakRestricted) {
+                    $peakRestricted = $nightRestricted;
+                }
+                if (($nightBooked + $nightRestricted) > $peakTotalBlockers) {
+                    $peakTotalBlockers = $nightBooked + $nightRestricted;
                 }
             }
 
             $totalInventory = (int) $room->total_inventory;
-            $minAvailableUnits = max(0, $totalInventory - $peakBooked);
+            $minAvailableUnits = max(0, $totalInventory - $peakTotalBlockers);
             $isAvailable = $minAvailableUnits > 0;
 
             $formattedOverlaps = $overlappingRes->map(function ($res) {
@@ -345,6 +428,20 @@ class AdminCalendarController extends Controller
                 ];
             });
 
+            $formattedRestrictions = $overlappingRestrictions->map(function ($restr) {
+                return [
+                    'id' => $restr->id,
+                    'restriction_number' => $restr->restriction_number,
+                    'title' => $restr->title,
+                    'restriction_type' => $restr->restriction_type,
+                    'start_date' => Carbon::parse($restr->start_date)->toDateString(),
+                    'end_date' => $restr->end_date ? Carbon::parse($restr->end_date)->toDateString() : null,
+                    'is_indefinite' => (bool) $restr->is_indefinite,
+                    'blocked_units' => $restr->blocked_units,
+                    'reason' => $restr->reason,
+                ];
+            });
+
             $results[] = [
                 'room_id' => $room->id,
                 'name' => $room->name,
@@ -352,10 +449,12 @@ class AdminCalendarController extends Controller
                 'total_inventory' => $totalInventory,
                 'nightly_rate_php' => (float) $room->nightly_rate_php,
                 'peak_booked_units' => $peakBooked,
+                'peak_restricted_units' => $peakRestricted,
                 'available_units' => $minAvailableUnits,
                 'is_available' => $isAvailable,
                 'conflict_detected' => ! $isAvailable,
                 'overlapping_reservations' => $formattedOverlaps,
+                'overlapping_restrictions' => $formattedRestrictions,
             ];
         }
 

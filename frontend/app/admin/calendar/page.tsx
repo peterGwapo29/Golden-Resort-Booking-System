@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import {
   getAdminCalendarSchedule,
   checkAdminRoomAvailability,
@@ -24,6 +25,8 @@ import {
 } from "@/components/ui/Icons";
 
 export default function AdminCalendarPage() {
+  const pathname = usePathname();
+  const portalBase = pathname.startsWith("/staff") ? "/staff" : "/admin";
   // Current active date view (Year and Month)
   const [currentDate, setCurrentDate] = useState<Date>(() => new Date());
   const [viewMode, setViewMode] = useState<"timeline" | "month">("timeline");
@@ -412,6 +415,9 @@ export default function AdminCalendarPage() {
             <span className="flex items-center gap-1.5">
               <span className="h-2.5 w-2.5 rounded-full bg-slate-400" /> Blocked
             </span>
+            <span className="flex items-center gap-1.5">
+              <span className="h-2.5 w-2.5 rounded-full bg-purple-600" /> Maintenance Block
+            </span>
           </div>
         </div>
       </div>
@@ -543,16 +549,29 @@ export default function AdminCalendarPage() {
                           let bgClass = "bg-emerald-50/60 text-emerald-800";
                           let label = `${slot?.available_units ?? 0} left`;
 
-                          if (slot?.status === "blocked") {
+                          if (slot?.status === "maintenance_blocked") {
+                            bgClass = "bg-purple-100 text-purple-900 border border-purple-300 font-bold";
+                            label = "Maint Block";
+                          } else if (slot?.status === "blocked") {
                             bgClass = "bg-slate-100 text-slate-500";
                             label = "Blocked";
                           } else if (slot?.status === "fully_booked") {
                             bgClass = "bg-rose-50 text-rose-800 font-bold";
                             label = "Full";
                           } else if (slot?.status === "partially_booked") {
-                            bgClass = "bg-amber-50 text-amber-800 font-semibold";
-                            label = `${slot?.available_units} / ${slot?.total_inventory}`;
+                            const restricted = slot?.restricted_units ?? 0;
+                            if (restricted > 0) {
+                              bgClass = "bg-amber-100 text-amber-900 border border-amber-300 font-semibold";
+                              label = `${slot?.available_units} left (${restricted} maint)`;
+                            } else {
+                              bgClass = "bg-amber-50 text-amber-800 font-semibold";
+                              label = `${slot?.available_units} / ${slot?.total_inventory}`;
+                            }
                           }
+
+                          const restrictionInfo = slot?.restrictions && slot.restrictions.length > 0
+                            ? ` [Restriction: ${slot.restrictions.map((r) => `${r.restriction_number} (${r.title})`).join(", ")}]`
+                            : "";
 
                           return (
                             <td
@@ -563,7 +582,7 @@ export default function AdminCalendarPage() {
                             >
                               <div
                                 className={`mx-auto flex h-8 w-full flex-col items-center justify-center rounded text-[0.65rem] transition-colors ${bgClass}`}
-                                title={`${room.name} on ${day.dateStr}: ${slot?.available_units} available out of ${slot?.total_inventory}`}
+                                title={`${room.name} on ${day.dateStr}: ${slot?.available_units} available out of ${slot?.total_inventory}${slot?.restricted_units ? `, ${slot.restricted_units} blocked by maintenance` : ""}${restrictionInfo}`}
                               >
                                 {label}
                               </div>
@@ -882,7 +901,7 @@ export default function AdminCalendarPage() {
             {/* Drawer Footer Actions */}
             <div className="border-t border-slate-200 bg-slate-50 p-4 flex gap-3">
               <Link
-                href={`/admin/reservations`}
+                href={`${portalBase}/reservations`}
                 className="flex-1 rounded-xl bg-forest py-2.5 text-center text-xs font-semibold uppercase tracking-wider text-gold hover:bg-forest-dark transition-colors"
               >
                 Go to Reservations
@@ -1060,6 +1079,34 @@ export default function AdminCalendarPage() {
                                 </span>
                                 <span className="font-mono text-slate-600">
                                   {formatDisplayDate(overlap.check_in)} to {formatDisplayDate(overlap.check_out)}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Overlapping maintenance restrictions info */}
+                        {room.overlapping_restrictions && room.overlapping_restrictions.length > 0 && (
+                          <div className="mt-2 rounded-lg border border-purple-200 bg-purple-50/50 p-3 space-y-1.5">
+                            <span className="font-semibold text-purple-900 uppercase tracking-wider text-[0.65rem] flex items-center gap-1.5">
+                              <span className="h-2 w-2 rounded-full bg-purple-600" />
+                              Active Operational / Maintenance Restrictions ({room.overlapping_restrictions.length}):
+                            </span>
+                            {room.overlapping_restrictions.map((restr) => (
+                              <div
+                                key={restr.id}
+                                className="flex items-center justify-between border-t border-purple-100 pt-1 text-[0.7rem]"
+                              >
+                                <div>
+                                  <span className="font-bold text-purple-900">
+                                    {restr.restriction_number} &mdash; {restr.title}
+                                  </span>
+                                  <span className="ml-2 text-xs text-purple-700">
+                                    ({restr.blocked_units} unit{restr.blocked_units > 1 ? "s" : ""} blocked)
+                                  </span>
+                                </div>
+                                <span className="font-mono text-purple-800 text-[0.65rem]">
+                                  {formatDisplayDate(restr.start_date)} to {restr.end_date ? formatDisplayDate(restr.end_date) : "Indefinite"}
                                 </span>
                               </div>
                             ))}

@@ -42,6 +42,8 @@ class Reservation extends Model
         'checked_out_by_user_id',
         'check_in_notes',
         'check_out_notes',
+        'booking_source',
+        'created_by_user_id',
     ];
 
     /**
@@ -135,6 +137,14 @@ class Reservation extends Model
     public function checkedOutBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'checked_out_by_user_id');
+    }
+
+    /**
+     * Get the user who created this reservation.
+     */
+    public function createdBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'created_by_user_id');
     }
 
     /**

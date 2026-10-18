@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import type { RoomDetail } from "@/types/booking";
 import {
   calculateBookingPrice,
@@ -26,14 +26,28 @@ export default function RoomDetailBookingBox({
   room,
 }: RoomDetailBookingBoxProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  const queryCheckIn = searchParams.get("checkIn") || "";
+  const queryCheckOut = searchParams.get("checkOut") || "";
+  const queryAdults = searchParams.get("adults") ? Number(searchParams.get("adults")) : 2;
+  const queryChildren = searchParams.get("children") ? Number(searchParams.get("children")) : 0;
+
   const [todayStr] = useState<string>(() => getTodayLocalDateString());
-  const [checkIn, setCheckIn] = useState<string>(() => getTodayLocalDateString());
-  const [checkOut, setCheckOut] = useState<string>(() =>
-    getDefaultCheckOutDate(getTodayLocalDateString())
+  const [checkIn, setCheckIn] = useState<string>(() => queryCheckIn || getTodayLocalDateString());
+  const [checkOut, setCheckOut] = useState<string>(
+    () => queryCheckOut || getDefaultCheckOutDate(queryCheckIn || getTodayLocalDateString())
   );
-  const [adults, setAdults] = useState<number>(2);
-  const [children, setChildren] = useState<number>(0);
+  const [adults, setAdults] = useState<number>(queryAdults);
+  const [children, setChildren] = useState<number>(queryChildren);
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    if (queryCheckIn) setCheckIn(queryCheckIn);
+    if (queryCheckOut) setCheckOut(queryCheckOut);
+    if (queryAdults) setAdults(queryAdults);
+    if (queryChildren !== undefined) setChildren(queryChildren);
+  }, [queryCheckIn, queryCheckOut, queryAdults, queryChildren]);
 
   const nights = calculateNights(checkIn, checkOut);
   const calculation = calculateBookingPrice(room.sampleRatePhp, nights);

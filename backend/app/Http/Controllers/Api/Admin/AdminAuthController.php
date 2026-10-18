@@ -30,22 +30,37 @@ class AdminAuthController extends Controller
             ]);
         }
 
-        if (! $user->isAdmin()) {
-            SecurityAuditLogger::log('auth.login.forbidden', 'Non-admin user attempted admin login', [
+        if (! $user->isActive()) {
+            SecurityAuditLogger::log('auth.login.deactivated', 'Deactivated account attempted login', [
+                'email' => $user->email,
+                'user_id' => $user->id,
+            ]);
+
+            return response()->json([
+                'message' => 'Your account has been deactivated. Please contact an administrator.',
+            ], 403);
+        }
+
+        if (! $user->isStaff()) {
+            SecurityAuditLogger::log('auth.login.forbidden', 'Unauthorized user attempted staff login', [
                 'email' => $user->email,
                 'role' => $user->role,
             ]);
 
             return response()->json([
-                'message' => 'Access denied. You do not have administrator permissions.',
+                'message' => 'Access denied. You do not have staff or administrator permissions.',
             ], 403);
         }
 
-        $token = $user->createToken('admin-token', ['admin'])->plainTextToken;
+        $user->update(['last_login_at' => now()]);
 
-        SecurityAuditLogger::log('auth.login.success', 'Admin login successful', [
+        $abilities = $user->isAdmin() ? ['*'] : $user->getAllPermissions();
+        $token = $user->createToken('staff-token', $abilities)->plainTextToken;
+
+        SecurityAuditLogger::log('auth.login.success', 'Staff authentication successful', [
             'email' => $user->email,
             'user_id' => $user->id,
+            'role' => $user->role,
         ]);
 
         return response()->json([
@@ -56,6 +71,10 @@ class AdminAuthController extends Controller
                 'name' => $user->name,
                 'email' => $user->email,
                 'role' => $user->role,
+                'is_active' => $user->is_active,
+                'phone' => $user->phone,
+                'department' => $user->department,
+                'permissions' => $user->getAllPermissions(),
             ],
         ]);
     }
@@ -68,7 +87,7 @@ class AdminAuthController extends Controller
         $userId = $request->user()?->id;
         $request->user()->currentAccessToken()?->delete();
 
-        SecurityAuditLogger::log('auth.logout', 'Admin logged out', [
+        SecurityAuditLogger::log('auth.logout', 'Staff logged out', [
             'user_id' => $userId,
         ]);
 
@@ -78,7 +97,7 @@ class AdminAuthController extends Controller
     }
 
     /**
-     * Return authenticated admin profile.
+     * Return authenticated staff profile.
      */
     public function me(Request $request): JsonResponse
     {
@@ -90,6 +109,10 @@ class AdminAuthController extends Controller
                 'name' => $user->name,
                 'email' => $user->email,
                 'role' => $user->role,
+                'is_active' => $user->is_active,
+                'phone' => $user->phone,
+                'department' => $user->department,
+                'permissions' => $user->getAllPermissions(),
             ],
         ]);
     }

@@ -20,6 +20,7 @@ class BookingNotification extends Model
         'reservation_id',
         'payment_id',
         'refund_id',
+        'maintenance_request_id',
         'recipient_email',
         'recipient_type',
         'notification_type',
@@ -67,6 +68,14 @@ class BookingNotification extends Model
     public function refund(): BelongsTo
     {
         return $this->belongsTo(Refund::class);
+    }
+
+    /**
+     * Get the maintenance request associated with this notification.
+     */
+    public function maintenanceRequest(): BelongsTo
+    {
+        return $this->belongsTo(MaintenanceRequest::class);
     }
 
     /**

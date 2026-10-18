@@ -4,8 +4,10 @@ namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\HousekeepingTask;
+use App\Models\HousekeepingTaskHistory;
 use App\Models\Reservation;
 use App\Services\FinancialCalculationService;
+use App\Services\SecurityAuditLogger;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -277,18 +279,69 @@ class AdminCheckInOutController extends Controller
             // Automatic Housekeeping Turnover Workflow
             $room = $reservation->room;
             if ($room) {
-                $room->housekeeping_status = 'dirty';
-                $room->housekeeping_notes = "Turnover required following guest check-out ({$reservation->booking_reference}).";
+                // Preserve maintenance status if room is currently blocked for repair
+                if ($room->housekeeping_status !== 'maintenance') {
+                    $room->housekeeping_status = 'dirty';
+                    $room->housekeeping_notes = "Turnover required following guest check-out ({$reservation->booking_reference}).";
+                } else {
+                    $existingNotes = $room->housekeeping_notes ? $room->housekeeping_notes."\n" : '';
+                    $room->housekeeping_notes = $existingNotes."Guest checked out ({$reservation->booking_reference}). Room remains under maintenance.";
+                }
                 $room->save();
 
-                HousekeepingTask::create([
+                // Idempotent task generation: check for existing active task on this room
+                $activeTask = HousekeepingTask::query()
+                    ->where('room_id', $room->id)
+                    ->whereIn('status', ['pending', 'in_progress', 'pending_review'])
+                    ->latest('id')
+                    ->first();
+
+                if ($activeTask) {
+                    // Update existing active task instead of duplicating
+                    if (in_array($activeTask->priority, ['low', 'normal'])) {
+                        $activeTask->priority = 'high';
+                    }
+                    $appendNote = "[Check-out {$reservation->booking_reference}]: Guest checked out; turnover cleaning required.";
+                    $activeTask->notes = trim(($activeTask->notes ?? '')."\n".$appendNote);
+                    $activeTask->save();
+
+                    HousekeepingTaskHistory::create([
+                        'housekeeping_task_id' => $activeTask->id,
+                        'actor_user_id' => $request->user()->id,
+                        'action' => 'checkout_turnover',
+                        'from_status' => $activeTask->status,
+                        'to_status' => $activeTask->status,
+                        'notes' => "Turnover triggered by check-out for {$reservation->booking_reference}. Active task updated.",
+                        'created_at' => Carbon::now(),
+                    ]);
+                } else {
+                    // Create new turnover cleaning task
+                    $newTask = HousekeepingTask::create([
+                        'room_id' => $room->id,
+                        'created_by_user_id' => $request->user()->id,
+                        'task_type' => 'cleaning',
+                        'priority' => 'high',
+                        'status' => 'pending',
+                        'notes' => "Check-out turnover for {$reservation->booking_reference} ({$reservation->guest_name_snapshot})",
+                        'scheduled_date' => Carbon::today()->toDateString(),
+                    ]);
+
+                    HousekeepingTaskHistory::create([
+                        'housekeeping_task_id' => $newTask->id,
+                        'actor_user_id' => $request->user()->id,
+                        'action' => 'created',
+                        'from_status' => null,
+                        'to_status' => 'pending',
+                        'notes' => "Automated turnover task generated following guest check-out ({$reservation->booking_reference}).",
+                        'created_at' => Carbon::now(),
+                    ]);
+                }
+
+                SecurityAuditLogger::log('housekeeping.checkout_turnover', 'Checkout turnover processed', [
+                    'reservation_id' => $reservation->id,
+                    'booking_reference' => $reservation->booking_reference,
                     'room_id' => $room->id,
-                    'created_by_user_id' => $request->user()->id,
-                    'task_type' => 'cleaning',
-                    'priority' => 'high',
-                    'status' => 'pending',
-                    'notes' => "Check-out turnover for {$reservation->booking_reference} ({$reservation->guest_name_snapshot})",
-                    'scheduled_date' => Carbon::today()->toDateString(),
+                    'room_status' => $room->housekeeping_status,
                 ]);
             }
         });

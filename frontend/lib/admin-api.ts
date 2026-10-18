@@ -56,6 +56,13 @@ export interface AdminUser {
   name: string;
   email: string;
   role: string;
+  is_active?: boolean;
+  phone?: string | null;
+  department?: string | null;
+  notes?: string | null;
+  last_login_at?: string | null;
+  created_at?: string;
+  permissions?: string[];
 }
 
 export interface DashboardMetrics {
@@ -258,6 +265,34 @@ export async function updateAdminReservationStatus(
   });
 }
 
+export interface CreateAdminReservationPayload {
+  room_id: number;
+  check_in: string;
+  check_out: string;
+  adults: number;
+  children?: number;
+  guest_full_name: string;
+  guest_email: string;
+  guest_phone: string;
+  booking_source: "walk_in" | "phone" | "front_desk" | "corporate" | "ota";
+  status?: "pending" | "confirmed";
+  special_requests?: string;
+  initial_payment?: {
+    amount: number;
+    payment_method: "cash" | "bank_transfer" | "credit_card" | "credit_card_terminal" | "e_wallet" | "other";
+    notes?: string;
+  };
+}
+
+export async function createAdminReservation(
+  payload: CreateAdminReservationPayload
+): Promise<{ data: any; message: string }> {
+  return adminFetch<{ data: any; message: string }>("/admin/reservations", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
 /* ==================== CUSTOMERS API ==================== */
 
 export async function getAdminCustomers(params: {
@@ -434,8 +469,18 @@ export interface CalendarDaySlot {
   date: string;
   total_inventory: number;
   booked_units: number;
+  restricted_units?: number;
   available_units: number;
-  status: "available" | "partially_booked" | "fully_booked" | "blocked";
+  status: "available" | "partially_booked" | "fully_booked" | "blocked" | "maintenance_blocked";
+  restrictions?: Array<{
+    id: number;
+    restriction_number: string;
+    title: string;
+    restriction_type: string;
+    reason: string;
+    blocked_units: number;
+    maintenance_request_id?: number | null;
+  }>;
 }
 
 export interface CalendarAccommodation {
@@ -446,6 +491,17 @@ export interface CalendarAccommodation {
   total_inventory: number;
   nightly_rate_php: number;
   is_active: boolean;
+  housekeeping_status?: string;
+  active_restrictions?: Array<{
+    id: number;
+    restriction_number: string;
+    title: string;
+    restriction_type: string;
+    start_date: string;
+    end_date: string | null;
+    is_indefinite: boolean;
+    blocked_units: number;
+  }>;
   schedule: CalendarDaySlot[];
 }
 
@@ -481,6 +537,7 @@ export interface CalendarDailySummary {
   arrivals: number;
   departures: number;
   occupied_units: number;
+  restricted_units?: number;
   total_capacity: number;
 }
 
@@ -511,6 +568,18 @@ export interface QuickCheckOverlappingReservation {
   status: string;
 }
 
+export interface QuickCheckOverlappingRestriction {
+  id: number;
+  restriction_number: string;
+  title: string;
+  restriction_type: string;
+  start_date: string;
+  end_date: string | null;
+  is_indefinite: boolean;
+  blocked_units: number;
+  reason: string;
+}
+
 export interface QuickCheckRoomResult {
   room_id: number;
   name: string;
@@ -518,10 +587,12 @@ export interface QuickCheckRoomResult {
   total_inventory: number;
   nightly_rate_php: number;
   peak_booked_units: number;
+  peak_restricted_units?: number;
   available_units: number;
   is_available: boolean;
   conflict_detected: boolean;
   overlapping_reservations: QuickCheckOverlappingReservation[];
+  overlapping_restrictions?: QuickCheckOverlappingRestriction[];
 }
 
 export interface QuickCheckResponse {
@@ -613,6 +684,31 @@ export interface HousekeepingOverviewResponse {
   rooms: HousekeepingRoom[];
 }
 
+export interface HousekeepingHistory {
+  id: number;
+  housekeeping_task_id: number;
+  actor_user_id: number | null;
+  user_id?: number | null;
+  action: string;
+  from_status: string | null;
+  to_status: string | null;
+  notes: string | null;
+  evidence_url: string | null;
+  created_at: string;
+  actor?: {
+    id: number;
+    name: string;
+    email: string;
+    role: string;
+  } | null;
+  user?: {
+    id: number;
+    name: string;
+    email?: string;
+    role?: string;
+  } | null;
+}
+
 export interface HousekeepingTask {
   id: number;
   room_id: number;
@@ -620,11 +716,14 @@ export interface HousekeepingTask {
   created_by_user_id: number;
   task_type: "cleaning" | "deep_clean" | "inspection" | "maintenance" | "turn_down";
   priority: "low" | "normal" | "high" | "urgent";
-  status: "pending" | "in_progress" | "completed" | "cancelled";
+  status: "pending" | "in_progress" | "pending_review" | "completed" | "cancelled";
   notes?: string | null;
   scheduled_date?: string | null;
   started_at?: string | null;
   completed_at?: string | null;
+  submitted_for_review_at?: string | null;
+  evidence_url?: string | null;
+  history?: HousekeepingHistory[];
   created_at: string;
   room?: {
     id: number;
@@ -740,6 +839,82 @@ export async function updateAdminHousekeepingTaskStatus(
 
 export async function getAdminHousekeepingStaff(): Promise<{ staff: HousekeepingStaffMember[] }> {
   return adminFetch<{ staff: HousekeepingStaffMember[] }>("/admin/housekeeping/staff");
+}
+
+export async function startHousekeepingTask(taskId: number): Promise<{ message: string; task: HousekeepingTask }> {
+  return adminFetch<{ message: string; task: HousekeepingTask }>(
+    `/admin/housekeeping/tasks/${taskId}/start`,
+    {
+      method: "POST",
+    }
+  );
+}
+
+export async function logHousekeepingProgress(
+  taskId: number,
+  notesOrFormData: string | FormData,
+  evidencePhoto?: File
+): Promise<{ message: string; task: HousekeepingTask }> {
+  let body: FormData;
+  if (notesOrFormData instanceof FormData) {
+    body = notesOrFormData;
+  } else {
+    body = new FormData();
+    if (notesOrFormData) body.append("notes", notesOrFormData);
+    if (evidencePhoto) body.append("evidence_photo", evidencePhoto);
+  }
+  return adminFetch<{ message: string; task: HousekeepingTask }>(
+    `/admin/housekeeping/tasks/${taskId}/progress`,
+    {
+      method: "POST",
+      body,
+    }
+  );
+}
+
+export async function submitHousekeepingReview(
+  taskId: number,
+  notesOrFormData: string | FormData,
+  evidencePhoto?: File
+): Promise<{ message: string; task: HousekeepingTask }> {
+  let body: FormData;
+  if (notesOrFormData instanceof FormData) {
+    body = notesOrFormData;
+  } else {
+    body = new FormData();
+    if (notesOrFormData) body.append("notes", notesOrFormData);
+    if (evidencePhoto) body.append("evidence_photo", evidencePhoto);
+  }
+  return adminFetch<{ message: string; task: HousekeepingTask }>(
+    `/admin/housekeeping/tasks/${taskId}/submit-review`,
+    {
+      method: "POST",
+      body,
+    }
+  );
+}
+
+export async function reviewHousekeepingTask(
+  taskId: number,
+  decision: "approve" | "reject",
+  notes?: string,
+  room_condition?: string
+): Promise<{ message: string; task: HousekeepingTask }> {
+  return adminFetch<{ message: string; task: HousekeepingTask }>(
+    `/admin/housekeeping/tasks/${taskId}/review`,
+    {
+      method: "POST",
+      body: JSON.stringify({ decision, notes, room_condition }),
+    }
+  );
+}
+
+export async function getHousekeepingHistory(
+  taskId: number
+): Promise<{ data: HousekeepingHistory[]; history?: HousekeepingHistory[] }> {
+  return adminFetch<{ data: HousekeepingHistory[]; history?: HousekeepingHistory[] }>(
+    `/admin/housekeeping/tasks/${taskId}/history`
+  );
 }
 
 /* ==================== FRONT DESK: CHECK-IN & CHECK-OUT API ==================== */
@@ -985,6 +1160,9 @@ export interface BookingNotificationItem {
   booking_reference?: string | null;
   guest_name?: string | null;
   room_name?: string | null;
+  maintenance_request_id?: number | null;
+  tracking_number?: string | null;
+  resource_name?: string | null;
   recipient_email: string;
   recipient_type: "guest" | "staff";
   notification_type:
@@ -994,7 +1172,13 @@ export interface BookingNotificationItem {
     | "payment_reminder"
     | "checkin_reminder"
     | "booking_cancellation"
-    | "refund_update";
+    | "refund_update"
+    | "maintenance_task_assigned"
+    | "maintenance_task_reassigned"
+    | "maintenance_progress_alert"
+    | "maintenance_review_submitted"
+    | "maintenance_review_approved"
+    | "maintenance_review_rejected";
   channel: string;
   subject: string;
   status: "queued" | "sent" | "failed";
@@ -1144,4 +1328,760 @@ export async function retryAdminNotification(
     method: "POST",
   });
 }
+
+/* ==================== STAFF MANAGEMENT API ==================== */
+
+export interface StaffMember {
+  id: number;
+  name: string;
+  email: string;
+  role: "admin" | "manager" | "front_desk" | "housekeeper" | "maintenance" | "staff" | string;
+  is_active: boolean;
+  phone?: string | null;
+  department?: string | null;
+  notes?: string | null;
+  last_login_at?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface StaffMetrics {
+  total: number;
+  active: number;
+  deactivated: number;
+  roles: Record<string, number>;
+}
+
+export interface StaffListResponse {
+  data: StaffMember[];
+  metrics: StaffMetrics;
+  meta: {
+    current_page: number;
+    last_page: number;
+    per_page: number;
+    total: number;
+  };
+}
+
+export interface CreateStaffPayload {
+  name: string;
+  email: string;
+  role: string;
+  password: string;
+  phone?: string;
+  department?: string;
+  notes?: string;
+}
+
+export interface UpdateStaffPayload {
+  name?: string;
+  email?: string;
+  role?: string;
+  phone?: string;
+  department?: string;
+  notes?: string;
+}
+
+export async function getAdminStaff(params: {
+  search?: string;
+  role?: string;
+  status?: string;
+  department?: string;
+  page?: number;
+  per_page?: number;
+} = {}): Promise<StaffListResponse> {
+  const q = new URLSearchParams();
+  if (params.search) q.set("search", params.search);
+  if (params.role && params.role !== "all") q.set("role", params.role);
+  if (params.status && params.status !== "all") q.set("status", params.status);
+  if (params.department && params.department !== "all") q.set("department", params.department);
+  if (params.page) q.set("page", String(params.page));
+  if (params.per_page) q.set("per_page", String(params.per_page));
+
+  return adminFetch<StaffListResponse>(`/admin/staff?${q.toString()}`);
+}
+
+export async function createAdminStaff(data: CreateStaffPayload): Promise<{
+  message: string;
+  staff: StaffMember;
+}> {
+  return adminFetch<{
+    message: string;
+    staff: StaffMember;
+  }>("/admin/staff", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function getAdminStaffMember(id: number): Promise<{
+  staff: StaffMember;
+  permissions: string[];
+}> {
+  return adminFetch<{
+    staff: StaffMember;
+    permissions: string[];
+  }>(`/admin/staff/${id}`);
+}
+
+export async function updateAdminStaff(
+  id: number,
+  data: UpdateStaffPayload
+): Promise<{
+  message: string;
+  staff: StaffMember;
+}> {
+  return adminFetch<{
+    message: string;
+    staff: StaffMember;
+  }>(`/admin/staff/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function toggleAdminStaffActive(id: number): Promise<{
+  message: string;
+  staff: StaffMember;
+}> {
+  return adminFetch<{
+    message: string;
+    staff: StaffMember;
+  }>(`/admin/staff/${id}/toggle-active`, {
+    method: "PATCH",
+  });
+}
+
+export async function resetAdminStaffPassword(
+  id: number,
+  password: string,
+  password_confirmation: string
+): Promise<{
+  message: string;
+}> {
+  return adminFetch<{
+    message: string;
+  }>(`/admin/staff/${id}/reset-password`, {
+    method: "POST",
+    body: JSON.stringify({ password, password_confirmation }),
+  });
+}
+
+/* ==================== STAFF PORTAL & PROFILE API ==================== */
+
+export interface StaffProfile {
+  id: number;
+  name: string;
+  email: string;
+  role: string;
+  is_active: boolean;
+  phone?: string | null;
+  department?: string | null;
+  notes?: string | null;
+  last_login_at?: string | null;
+  created_at?: string | null;
+  permissions: string[];
+}
+
+export interface UpdateStaffProfilePayload {
+  name: string;
+  phone?: string | null;
+}
+
+export interface ChangeStaffPasswordPayload {
+  current_password: string;
+  password: string;
+  password_confirmation: string;
+}
+
+export interface StaffDashboardTask {
+  id: number;
+  source?: "housekeeping" | "maintenance";
+  tracking_number?: string;
+  title?: string;
+  resource_name?: string;
+  resource_type?: string;
+  task_type: string;
+  priority: "low" | "normal" | "high" | "urgent";
+  status: string;
+  notes?: string | null;
+  scheduled_date?: string | null;
+  started_at?: string | null;
+  is_overdue?: boolean;
+  room?: {
+    id: number;
+    name: string;
+    slug: string;
+    category: string;
+    housekeeping_status: string;
+  } | null;
+}
+
+export interface StaffDashboardPermittedModule {
+  key: string;
+  name: string;
+  description: string;
+  href: string;
+}
+
+export interface StaffDashboardResponse {
+  user: {
+    id: number;
+    name: string;
+    email: string;
+    role: string;
+    department?: string | null;
+    phone?: string | null;
+    last_login_at?: string | null;
+    permissions: string[];
+  };
+  metrics: {
+    my_open_tasks: number;
+    my_completed_today: number;
+    clean_rooms?: number;
+    dirty_rooms?: number;
+    in_progress_rooms?: number;
+    inspected_rooms?: number;
+    maintenance_rooms?: number;
+    my_open_maintenance?: number;
+    total_open_maintenance?: number;
+    in_progress_maintenance?: number;
+    pending_review_maintenance?: number;
+    total_resort_open_tasks?: number;
+    today_arrivals?: number;
+    today_departures?: number;
+    in_house_guests?: number;
+    total_accommodations?: number;
+    active_accommodations?: number;
+  };
+  assigned_tasks: StaffDashboardTask[];
+  permitted_modules: StaffDashboardPermittedModule[];
+}
+
+export async function getStaffProfile(): Promise<{ user: StaffProfile }> {
+  return adminFetch<{ user: StaffProfile }>("/staff/profile");
+}
+
+export async function updateStaffProfile(
+  data: UpdateStaffProfilePayload
+): Promise<{
+  message: string;
+  user: StaffProfile;
+}> {
+  return adminFetch<{
+    message: string;
+    user: StaffProfile;
+  }>("/staff/profile", {
+    method: "PUT",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function changeStaffPassword(
+  data: ChangeStaffPasswordPayload
+): Promise<{
+  message: string;
+}> {
+  return adminFetch<{
+    message: string;
+  }>("/staff/profile/password", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function getStaffDashboard(): Promise<StaffDashboardResponse> {
+  return adminFetch<StaffDashboardResponse>("/staff/dashboard");
+}
+
+/* =========================================================================
+   Maintenance Requests Management API
+   ========================================================================= */
+
+export type MaintenancePriority = "low" | "normal" | "high" | "urgent";
+export type MaintenanceStatus =
+  | "reported"
+  | "assessed"
+  | "assigned"
+  | "acknowledged"
+  | "in_progress"
+  | "on_hold"
+  | "pending_review"
+  | "resolved"
+  | "cancelled";
+export type MaintenanceResourceType =
+  | "room"
+  | "villa"
+  | "facility"
+  | "equipment"
+  | "other";
+
+export interface MaintenanceAttachment {
+  id: number;
+  file_name: string;
+  file_path: string;
+  file_type: string;
+  file_size: number;
+  url: string;
+  created_at?: string;
+}
+
+export interface MaintenanceHistory {
+  id: number;
+  action: string;
+  actor_role?: string | null;
+  from_status?: string | null;
+  to_status?: string | null;
+  notes?: string | null;
+  changes_payload?: Record<string, { from?: any; to?: any; from_name?: string; to_name?: string }> | null;
+  user?: {
+    id: number;
+    name: string;
+    role: string;
+  } | null;
+  from_assigned_to?: {
+    id: number;
+    name: string;
+  } | null;
+  to_assigned_to?: {
+    id: number;
+    name: string;
+  } | null;
+  created_at: string;
+}
+
+export interface MaintenanceStaffAssignee {
+  id: number;
+  name: string;
+  email: string;
+  role: string;
+  department?: string | null;
+}
+
+export interface MaintenanceRequest {
+  id: number;
+  tracking_number: string;
+  title: string;
+  description: string;
+  resource_type: MaintenanceResourceType;
+  room_id: number | null;
+  room?: {
+    id: number;
+    name: string;
+    category: string;
+    housekeeping_status: string;
+  } | null;
+  resource_name: string;
+  location: string | null;
+  priority: MaintenancePriority;
+  status: MaintenanceStatus;
+  cost_php: number;
+  repair_notes: string | null;
+  due_date?: string | null;
+  is_overdue?: boolean;
+  reported_by?: {
+    id: number;
+    name: string;
+    email: string;
+    role: string;
+  } | null;
+  assigned_to?: {
+    id: number;
+    name: string;
+    email: string;
+    role: string;
+    department?: string | null;
+  } | null;
+  capabilities?: {
+    can_assign?: boolean;
+    can_acknowledge?: boolean;
+    can_start?: boolean;
+    can_update_progress?: boolean;
+    can_submit_review?: boolean;
+    can_review?: boolean;
+    can_resolve?: boolean;
+  };
+  attachments: MaintenanceAttachment[];
+  history?: MaintenanceHistory[];
+  reported_at?: string | null;
+  assigned_at?: string | null;
+  acknowledged_at?: string | null;
+  started_at?: string | null;
+  submitted_for_review_at?: string | null;
+  resolved_at?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface MaintenanceStats {
+  total_active: number;
+  urgent_high: number;
+  in_progress: number;
+  pending_review: number;
+  resolved: number;
+  overdue: number;
+  assigned_to_me: number;
+  total_cost_php: number;
+}
+
+export interface MaintenanceFilters {
+  page?: number;
+  per_page?: number;
+  status?: string;
+  priority?: string;
+  resource_type?: string;
+  assigned_to?: string;
+  overdue_only?: boolean;
+  search?: string;
+}
+
+export async function getMaintenanceRequests(
+  filters: MaintenanceFilters = {}
+): Promise<PaginatedResult<MaintenanceRequest>> {
+  const params = new URLSearchParams();
+  if (filters.page) params.append("page", String(filters.page));
+  if (filters.per_page) params.append("per_page", String(filters.per_page));
+  if (filters.status && filters.status !== "all") params.append("status", filters.status);
+  if (filters.priority && filters.priority !== "all") params.append("priority", filters.priority);
+  if (filters.resource_type && filters.resource_type !== "all") params.append("resource_type", filters.resource_type);
+  if (filters.assigned_to && filters.assigned_to !== "all") params.append("assigned_to", filters.assigned_to);
+  if (filters.overdue_only) params.append("overdue_only", "1");
+  if (filters.search) params.append("search", filters.search);
+
+  const qs = params.toString() ? `?${params.toString()}` : "";
+  return adminFetch<PaginatedResult<MaintenanceRequest>>(`/admin/maintenance${qs}`);
+}
+
+export async function getMaintenanceStats(): Promise<MaintenanceStats> {
+  return adminFetch<MaintenanceStats>("/admin/maintenance/stats");
+}
+
+export async function getMaintenanceAssignees(): Promise<{ data: MaintenanceStaffAssignee[] }> {
+  return adminFetch<{ data: MaintenanceStaffAssignee[] }>("/admin/maintenance/assignees");
+}
+
+export async function getMaintenanceRequest(
+  id: number
+): Promise<{ data: MaintenanceRequest }> {
+  return adminFetch<{ data: MaintenanceRequest }>(`/admin/maintenance/${id}`);
+}
+
+export async function createMaintenanceRequest(
+  data: FormData | Record<string, any>
+): Promise<{ data: MaintenanceRequest }> {
+  const isFormData = typeof FormData !== "undefined" && data instanceof FormData;
+  return adminFetch<{ data: MaintenanceRequest }>("/admin/maintenance", {
+    method: "POST",
+    body: isFormData ? data : JSON.stringify(data),
+  });
+}
+
+export async function updateMaintenanceRequest(
+  id: number,
+  data: FormData | Record<string, any>
+): Promise<{ data: MaintenanceRequest }> {
+  const isFormData = typeof FormData !== "undefined" && data instanceof FormData;
+  return adminFetch<{ data: MaintenanceRequest }>(`/admin/maintenance/${id}`, {
+    method: isFormData ? "POST" : "PUT",
+    body: isFormData ? data : JSON.stringify(data),
+  });
+}
+
+export async function updateMaintenanceStatus(
+  id: number,
+  payload: {
+    status: string;
+    repair_notes?: string;
+    cost_php?: number;
+  }
+): Promise<{ data: MaintenanceRequest }> {
+  return adminFetch<{ data: MaintenanceRequest }>(`/admin/maintenance/${id}/status`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function assignMaintenanceRequest(
+  id: number,
+  payload: {
+    assigned_to_user_id: number;
+    due_date?: string | null;
+    notes?: string;
+  }
+): Promise<{ data: MaintenanceRequest }> {
+  return adminFetch<{ data: MaintenanceRequest }>(`/admin/maintenance/${id}/assign`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function acknowledgeMaintenanceRequest(
+  id: number,
+  notes?: string
+): Promise<{ data: MaintenanceRequest }> {
+  return adminFetch<{ data: MaintenanceRequest }>(`/admin/maintenance/${id}/acknowledge`, {
+    method: "POST",
+    body: JSON.stringify({ notes }),
+  });
+}
+
+export async function startMaintenanceRequest(
+  id: number,
+  notes?: string
+): Promise<{ data: MaintenanceRequest }> {
+  return adminFetch<{ data: MaintenanceRequest }>(`/admin/maintenance/${id}/start`, {
+    method: "POST",
+    body: JSON.stringify({ notes }),
+  });
+}
+
+export async function recordMaintenanceProgress(
+  id: number,
+  data: FormData | Record<string, any>
+): Promise<{ data: MaintenanceRequest }> {
+  const isFormData = typeof FormData !== "undefined" && data instanceof FormData;
+  return adminFetch<{ data: MaintenanceRequest }>(`/admin/maintenance/${id}/progress`, {
+    method: "POST",
+    body: isFormData ? data : JSON.stringify(data),
+  });
+}
+
+export const progressMaintenanceRequest = recordMaintenanceProgress;
+
+export async function submitMaintenanceReview(
+  id: number,
+  data: FormData | Record<string, any>
+): Promise<{ data: MaintenanceRequest }> {
+  const isFormData = typeof FormData !== "undefined" && data instanceof FormData;
+  return adminFetch<{ data: MaintenanceRequest }>(`/admin/maintenance/${id}/submit-review`, {
+    method: "POST",
+    body: isFormData ? data : JSON.stringify(data),
+  });
+}
+
+export async function reviewMaintenanceRequest(
+  id: number,
+  payload: {
+    action: "approve" | "reject";
+    notes?: string;
+  }
+): Promise<{ data: MaintenanceRequest }> {
+  return adminFetch<{ data: MaintenanceRequest }>(`/admin/maintenance/${id}/review`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function getMaintenanceHistory(
+  id: number
+): Promise<{ data: MaintenanceHistory[] }> {
+  return adminFetch<{ data: MaintenanceHistory[] }>(`/admin/maintenance/${id}/history`);
+}
+
+export async function deleteMaintenanceRequest(
+  id: number
+): Promise<{ message: string }> {
+  return adminFetch<{ message: string }>(`/admin/maintenance/${id}`, {
+    method: "DELETE",
+  });
+}
+
+export async function deleteMaintenanceAttachment(
+  requestId: number,
+  attachmentId: number
+): Promise<{ message: string }> {
+  return adminFetch<{ message: string }>(
+    `/admin/maintenance/${requestId}/attachments/${attachmentId}`,
+    {
+      method: "DELETE",
+    }
+  );
+}
+
+/* ==================== ACCOMMODATION RESTRICTIONS API ==================== */
+
+export interface AffectedReservationSnapshot {
+  id: number;
+  booking_reference: string;
+  guest_name: string;
+  guest_email?: string;
+  guest_phone?: string;
+  check_in: string;
+  check_out: string;
+  status: string;
+  total_guests?: number;
+}
+
+export interface AccommodationRestriction {
+  id: number;
+  restriction_number: string;
+  room_id: number;
+  maintenance_request_id?: number | null;
+  restriction_type:
+    | "maintenance_block"
+    | "emergency_repair"
+    | "scheduled_renovation"
+    | "safety_hazard"
+    | "operational_hold";
+  title: string;
+  reason: string;
+  blocked_units: number;
+  start_date: string;
+  end_date: string | null;
+  is_indefinite: boolean;
+  status: "active" | "cleared" | "cancelled";
+  affected_reservations_snapshot?: AffectedReservationSnapshot[] | null;
+  handling_protocol?: string | null;
+  created_by_user_id: number;
+  cleared_by_user_id?: number | null;
+  cleared_at?: string | null;
+  clearance_notes?: string | null;
+  cancellation_reason?: string | null;
+  created_at: string;
+  updated_at: string;
+  room?: {
+    id: number;
+    name: string;
+    slug?: string;
+    category: string;
+    total_inventory: number;
+  };
+  maintenance_request?: {
+    id: number;
+    title: string;
+    priority: string;
+    status: string;
+  };
+  created_by?: {
+    id: number;
+    name: string;
+    role: string;
+  };
+  cleared_by?: {
+    id: number;
+    name: string;
+    role: string;
+  };
+}
+
+export interface CheckConflictsParams {
+  room_id: number;
+  start_date: string;
+  end_date?: string | null;
+  is_indefinite?: boolean;
+  blocked_units?: number;
+}
+
+export interface CheckConflictsResponse {
+  conflicts_detected: boolean;
+  overlapping_count: number;
+  overlapping_reservations: AffectedReservationSnapshot[];
+  room: {
+    id: number;
+    name: string;
+    total_inventory: number;
+  };
+  message: string;
+}
+
+export interface CreateRestrictionPayload {
+  room_id: number;
+  maintenance_request_id?: number | null;
+  restriction_type:
+    | "maintenance_block"
+    | "emergency_repair"
+    | "scheduled_renovation"
+    | "safety_hazard"
+    | "operational_hold";
+  title: string;
+  reason: string;
+  blocked_units?: number;
+  start_date: string;
+  end_date?: string | null;
+  is_indefinite?: boolean;
+  handling_protocol?: string;
+}
+
+export interface ClearRestrictionPayload {
+  clearance_notes: string;
+  room_condition?: "inspected" | "clean" | "dirty";
+}
+
+export async function getAdminRestrictions(params: {
+  room_id?: number | string;
+  status?: string;
+  restriction_type?: string;
+  search?: string;
+  page?: number;
+  per_page?: number;
+} = {}): Promise<PaginatedResult<AccommodationRestriction>> {
+  const q = new URLSearchParams();
+  if (params.room_id && params.room_id !== "all") q.set("room_id", String(params.room_id));
+  if (params.status && params.status !== "all") q.set("status", params.status);
+  if (params.restriction_type && params.restriction_type !== "all") q.set("restriction_type", params.restriction_type);
+  if (params.search) q.set("search", params.search);
+  if (params.page) q.set("page", String(params.page));
+  if (params.per_page) q.set("per_page", String(params.per_page));
+
+  return adminFetch<PaginatedResult<AccommodationRestriction>>(`/admin/restrictions?${q.toString()}`);
+}
+
+export async function checkRestrictionConflicts(
+  params: CheckConflictsParams
+): Promise<CheckConflictsResponse> {
+  const q = new URLSearchParams({
+    room_id: String(params.room_id),
+    start_date: params.start_date,
+  });
+  if (params.end_date) q.set("end_date", params.end_date);
+  if (params.is_indefinite) q.set("is_indefinite", "1");
+  if (params.blocked_units) q.set("blocked_units", String(params.blocked_units));
+
+  return adminFetch<CheckConflictsResponse>(`/admin/restrictions/check-conflicts?${q.toString()}`);
+}
+
+export async function createAdminRestriction(
+  payload: CreateRestrictionPayload
+): Promise<{ message: string; data: AccommodationRestriction }> {
+  return adminFetch<{ message: string; data: AccommodationRestriction }>("/admin/restrictions", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function getAdminRestriction(
+  id: number
+): Promise<{ data: AccommodationRestriction }> {
+  return adminFetch<{ data: AccommodationRestriction }>(`/admin/restrictions/${id}`);
+}
+
+export async function clearAdminRestriction(
+  id: number,
+  payload: ClearRestrictionPayload
+): Promise<{ message: string; data: AccommodationRestriction }> {
+  return adminFetch<{ message: string; data: AccommodationRestriction }>(
+    `/admin/restrictions/${id}/clear`,
+    {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }
+  );
+}
+
+export async function cancelAdminRestriction(
+  id: number,
+  payload: { cancellation_reason: string }
+): Promise<{ message: string; data: AccommodationRestriction }> {
+  return adminFetch<{ message: string; data: AccommodationRestriction }>(
+    `/admin/restrictions/${id}/cancel`,
+    {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }
+  );
+}
+
+
+
+
 

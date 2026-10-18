@@ -188,6 +188,30 @@ export default function AdminNotificationsPage() {
   };
 
   /**
+   * Automatically marks notification as read and navigates to the associated maintenance work order.
+   */
+  const handleOpenMaintenance = async (notif: BookingNotificationItem) => {
+    if (!notif.maintenance_request_id) {
+      handleOpenInspection(notif);
+      return;
+    }
+
+    if (!notif.is_read && !inFlightReads.current.has(notif.id)) {
+      inFlightReads.current.add(notif.id);
+      try {
+        const res = await markNotificationAsRead(notif.id);
+        applyNotificationRead(notif.id, res.data?.read_at, res.unread_count);
+      } catch (err: any) {
+        console.error("Failed to mark notification as read before navigation:", err);
+      } finally {
+        inFlightReads.current.delete(notif.id);
+      }
+    }
+
+    router.push(`/admin/maintenance?id=${notif.maintenance_request_id}`);
+  };
+
+  /**
    * Opens the inspection modal and automatically marks the notification as read upon review.
    */
   const handleOpenInspection = async (notif: BookingNotificationItem) => {
@@ -206,7 +230,6 @@ export default function AdminNotificationsPage() {
       }
     }
   };
-
 
   const handleMarkAllRead = async () => {
     try {
@@ -231,6 +254,12 @@ export default function AdminNotificationsPage() {
     checkin_reminder: { label: "Check-In Reminder", color: "bg-purple-50 text-purple-700 border-purple-200" },
     booking_cancellation: { label: "Cancellation Notice", color: "bg-rose-50 text-rose-700 border-rose-200" },
     refund_update: { label: "Refund Notice", color: "bg-indigo-50 text-indigo-700 border-indigo-200" },
+    maintenance_task_assigned: { label: "Task Assigned", color: "bg-sky-50 text-sky-700 border-sky-200" },
+    maintenance_task_reassigned: { label: "Task Reassigned", color: "bg-violet-50 text-violet-700 border-violet-200" },
+    maintenance_progress_alert: { label: "Work Progress", color: "bg-orange-50 text-orange-700 border-orange-200" },
+    maintenance_review_submitted: { label: "Review Pending", color: "bg-yellow-50 text-yellow-800 border-yellow-200" },
+    maintenance_review_approved: { label: "Review Approved", color: "bg-emerald-50 text-emerald-800 border-emerald-200" },
+    maintenance_review_rejected: { label: "Revision Requested", color: "bg-rose-50 text-rose-800 border-rose-200" },
   };
 
   return (
@@ -406,6 +435,12 @@ export default function AdminNotificationsPage() {
               <option value="checkin_reminder">Check-In Reminder</option>
               <option value="booking_cancellation">Cancellation Notice</option>
               <option value="refund_update">Refund Update</option>
+              <option value="maintenance_task_assigned">Task Assigned</option>
+              <option value="maintenance_task_reassigned">Task Reassigned</option>
+              <option value="maintenance_progress_alert">Work Progress</option>
+              <option value="maintenance_review_submitted">Review Pending</option>
+              <option value="maintenance_review_approved">Review Approved</option>
+              <option value="maintenance_review_rejected">Revision Requested</option>
             </select>
           </div>
 
@@ -520,7 +555,7 @@ export default function AdminNotificationsPage() {
                 <tr>
                   <th className="py-3 px-4">Event Type</th>
                   <th className="py-3 px-4">Recipient</th>
-                  <th className="py-3 px-4">Booking Ref</th>
+                  <th className="py-3 px-4">Booking / Work Order</th>
                   <th className="py-3 px-4">Subject</th>
                   <th className="py-3 px-4">Delivery Status</th>
                   <th className="py-3 px-4">Sent / Queued At</th>
@@ -576,12 +611,26 @@ export default function AdminNotificationsPage() {
                           >
                             {notif.booking_reference || `#${notif.reservation_id}`}
                           </button>
+                        ) : notif.maintenance_request_id ? (
+                          <button
+                            type="button"
+                            onClick={() => handleOpenMaintenance(notif)}
+                            className="font-mono text-xs font-semibold text-amber-700 hover:text-amber-900 hover:underline text-left cursor-pointer"
+                            title={`Open work order #${notif.tracking_number || notif.maintenance_request_id}`}
+                          >
+                            {notif.tracking_number || `#${notif.maintenance_request_id}`}
+                          </button>
                         ) : (
                           <span className="text-stone-400 italic">None</span>
                         )}
                         {notif.guest_name && (
                           <div className="text-[10px] text-stone-500 truncate max-w-[140px]">
                             {notif.guest_name}
+                          </div>
+                        )}
+                        {notif.resource_name && (
+                          <div className="text-[10px] text-amber-700 font-medium truncate max-w-[140px]">
+                            {notif.resource_name}
                           </div>
                         )}
                       </td>
@@ -654,12 +703,16 @@ export default function AdminNotificationsPage() {
                             onClick={() =>
                               notif.reservation_id
                                 ? handleOpenBooking(notif)
+                                : notif.maintenance_request_id
+                                ? handleOpenMaintenance(notif)
                                 : handleOpenInspection(notif)
                             }
                             className="px-2.5 py-1 border border-stone-200 hover:bg-stone-100 rounded-lg text-[10px] font-medium text-stone-700 transition"
                             title={
                               notif.reservation_id
                                 ? "Open booking details and mark as read"
+                                : notif.maintenance_request_id
+                                ? "Open maintenance work order and mark as read"
                                 : "Review notification details and mark as read"
                             }
                           >
@@ -778,6 +831,15 @@ export default function AdminNotificationsPage() {
                 </div>
               )}
 
+              {selectedNotif.maintenance_request_id && (
+                <div>
+                  <p className="text-[10px] uppercase font-bold text-stone-400">Associated Work Order</p>
+                  <p className="font-mono text-stone-800">
+                    {selectedNotif.tracking_number || `#${selectedNotif.maintenance_request_id}`} {selectedNotif.resource_name && `(${selectedNotif.resource_name})`}
+                  </p>
+                </div>
+              )}
+
               {selectedNotif.error_message && (
                 <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-800">
                   <p className="font-bold text-[10px] uppercase">Error Diagnostics:</p>
@@ -815,6 +877,19 @@ export default function AdminNotificationsPage() {
                   className="px-4 py-1.5 bg-forest hover:bg-forest-dark text-white font-semibold text-xs rounded-xl"
                 >
                   Open Booking &rarr;
+                </button>
+              )}
+              {selectedNotif.maintenance_request_id && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const mId = selectedNotif.maintenance_request_id;
+                    setSelectedNotif(null);
+                    router.push(`/admin/maintenance?id=${mId}`);
+                  }}
+                  className="px-4 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-semibold text-xs rounded-xl"
+                >
+                  Open Work Order &rarr;
                 </button>
               )}
               <button

@@ -18,8 +18,30 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!isLoading && !isAuthenticated && pathname !== "/admin/login") {
       router.push("/admin/login");
+      return;
     }
-  }, [isLoading, isAuthenticated, pathname, router]);
+
+    // Role-based guard: non-admin users accessing any /admin route are redirected to /staff
+    if (!isLoading && isAuthenticated && user && user.role !== "admin" && pathname !== "/admin/login") {
+      if (pathname.startsWith("/admin/housekeeping") && (user.role === "housekeeper" || user.role === "manager")) {
+        router.push("/staff/housekeeping");
+      } else if (pathname.startsWith("/admin/maintenance") && (user.role === "maintenance" || user.role === "manager")) {
+        router.push("/staff/maintenance");
+      } else if (pathname.startsWith("/admin/check-in-out") && (user.role === "front_desk" || user.role === "manager")) {
+        router.push("/staff/check-in-out");
+      } else if (pathname.startsWith("/admin/calendar") && (user.role === "front_desk" || user.role === "manager")) {
+        router.push("/staff/calendar");
+      } else if (pathname.startsWith("/admin/rooms") && (user.role === "front_desk" || user.role === "manager")) {
+        router.push("/staff/rooms");
+      } else if (pathname.startsWith("/admin/reservations") && (user.role === "front_desk" || user.role === "manager")) {
+        router.push("/staff/reservations");
+      } else if (pathname.startsWith("/admin/customers") && (user.role === "front_desk" || user.role === "manager")) {
+        router.push("/staff/customers");
+      } else {
+        router.push("/staff");
+      }
+    }
+  }, [isLoading, isAuthenticated, user, pathname, router]);
 
   // If on login page, render children directly without dashboard shell
   if (pathname === "/admin/login") {

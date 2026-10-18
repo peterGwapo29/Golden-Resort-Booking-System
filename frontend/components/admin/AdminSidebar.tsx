@@ -12,18 +12,21 @@ import {
   KeyIcon,
   ClipboardListIcon,
   UserCheckIcon,
+  UsersIcon,
   CreditCardIcon,
   LogoutIcon,
   CloseIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
   BellIcon,
+  WrenchIcon,
 } from "@/components/ui/Icons";
 
 export interface NavItem {
   label: string;
   href: string;
   icon: React.ComponentType<{ className?: string }>;
+  adminOnly?: boolean;
 }
 
 export interface NavSection {
@@ -44,6 +47,7 @@ export const ADMIN_NAV_SECTIONS: NavSection[] = [
       { label: "Accommodations", href: "/admin/rooms", icon: DoorIcon },
       { label: "Availability Calendar", href: "/admin/calendar", icon: CalendarIcon },
       { label: "Housekeeping", href: "/admin/housekeeping", icon: SparklesIcon },
+      { label: "Maintenance", href: "/admin/maintenance", icon: WrenchIcon },
       { label: "Front Desk (Check-In)", href: "/admin/check-in-out", icon: KeyIcon },
     ],
   },
@@ -54,6 +58,12 @@ export const ADMIN_NAV_SECTIONS: NavSection[] = [
       { label: "Customers", href: "/admin/customers", icon: UserCheckIcon },
       { label: "Payments & Refunds", href: "/admin/payments", icon: CreditCardIcon },
       { label: "Notifications", href: "/admin/notifications", icon: BellIcon },
+    ],
+  },
+  {
+    title: "System & Access",
+    items: [
+      { label: "Staff Accounts", href: "/admin/staff", icon: UsersIcon, adminOnly: true },
     ],
   },
 ];
@@ -205,31 +215,37 @@ export default function AdminSidebar({
           aria-label="Main Navigation"
           className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden py-3 px-2 space-y-4 [scrollbar-width:thin] [scrollbar-color:rgba(198,166,107,0.3)_transparent]"
         >
-          {ADMIN_NAV_SECTIONS.map((section, sIdx) => (
-            <div key={section.title} className="space-y-1">
-              {/* Section Header */}
-              {collapsed ? (
-                sIdx > 0 && (
-                  <div
-                    role="separator"
-                    aria-label={section.title}
-                    className="h-px bg-white/10 my-2 mx-1"
-                    title={section.title}
-                  />
-                )
-              ) : (
-                <div className="px-3 pt-2 pb-1">
-                  <span className="text-[10px] font-bold tracking-widest text-gold/80 uppercase select-none">
-                    {section.title}
-                  </span>
-                </div>
-              )}
+          {ADMIN_NAV_SECTIONS.map((section, sIdx) => {
+            const visibleItems = section.items.filter(
+              (item) => !item.adminOnly || user?.role === "admin"
+            );
+            if (visibleItems.length === 0) return null;
 
-              {/* Section Items */}
-              <div className="space-y-1">
-                {section.items.map((item) => {
-                  const Icon = item.icon;
-                  const active = isRouteActive(pathname, item.href);
+            return (
+              <div key={section.title} className="space-y-1">
+                {/* Section Header */}
+                {collapsed ? (
+                  sIdx > 0 && (
+                    <div
+                      role="separator"
+                      aria-label={section.title}
+                      className="h-px bg-white/10 my-2 mx-1"
+                      title={section.title}
+                    />
+                  )
+                ) : (
+                  <div className="px-3 pt-2 pb-1">
+                    <span className="text-[10px] font-bold tracking-widest text-gold/80 uppercase select-none">
+                      {section.title}
+                    </span>
+                  </div>
+                )}
+
+                {/* Section Items */}
+                <div className="space-y-1">
+                  {visibleItems.map((item) => {
+                    const Icon = item.icon;
+                    const active = isRouteActive(pathname, item.href);
 
                   return (
                     <Link
@@ -258,7 +274,8 @@ export default function AdminSidebar({
                 })}
               </div>
             </div>
-          ))}
+          );
+        })}
         </nav>
 
         {/* Administrator Footer (User profile & Sign Out) */}
@@ -356,39 +373,46 @@ export default function AdminSidebar({
               aria-label="Mobile Navigation"
               className="flex-1 min-h-0 overflow-y-auto py-4 px-3 space-y-4"
             >
-              {ADMIN_NAV_SECTIONS.map((section) => (
-                <div key={section.title} className="space-y-1">
-                  <div className="px-3 pt-2 pb-1">
-                    <span className="text-[10px] font-bold tracking-widest text-gold/80 uppercase">
-                      {section.title}
-                    </span>
-                  </div>
+              {ADMIN_NAV_SECTIONS.map((section) => {
+                const visibleItems = section.items.filter(
+                  (item) => !item.adminOnly || user?.role === "admin"
+                );
+                if (visibleItems.length === 0) return null;
 
-                  <div className="space-y-1">
-                    {section.items.map((item) => {
-                      const Icon = item.icon;
-                      const active = isRouteActive(pathname, item.href);
+                return (
+                  <div key={section.title} className="space-y-1">
+                    <div className="px-3 pt-2 pb-1">
+                      <span className="text-[10px] font-bold tracking-widest text-gold/80 uppercase">
+                        {section.title}
+                      </span>
+                    </div>
 
-                      return (
-                        <Link
-                          key={item.href}
-                          href={item.href}
-                          onClick={() => setMobileOpen(false)}
-                          aria-current={active ? "page" : undefined}
-                          className={`flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-xs font-medium transition ${
-                            active
-                              ? "bg-gold text-forest-dark font-semibold shadow-xs"
-                              : "text-white/80 hover:bg-forest-dark/70 hover:text-white"
-                          }`}
-                        >
-                          <Icon className={`h-4 w-4 shrink-0 ${active ? "text-forest-dark" : "text-white/80"}`} />
-                          <span className="truncate">{item.label}</span>
-                        </Link>
-                      );
-                    })}
+                    <div className="space-y-1">
+                      {visibleItems.map((item) => {
+                        const Icon = item.icon;
+                        const active = isRouteActive(pathname, item.href);
+
+                        return (
+                          <Link
+                            key={item.href}
+                            href={item.href}
+                            onClick={() => setMobileOpen(false)}
+                            aria-current={active ? "page" : undefined}
+                            className={`flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-xs font-medium transition ${
+                              active
+                                ? "bg-gold text-forest-dark font-semibold shadow-xs"
+                                : "text-white/80 hover:bg-forest-dark/70 hover:text-white"
+                            }`}
+                          >
+                            <Icon className={`h-4 w-4 shrink-0 ${active ? "text-forest-dark" : "text-white/80"}`} />
+                            <span className="truncate">{item.label}</span>
+                          </Link>
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </nav>
 
             {/* Mobile Footer */}

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\AvailabilityCheckRequest;
 use App\Http\Resources\RoomResource;
+use App\Models\AccommodationRestriction;
 use App\Models\Reservation;
 use App\Models\Room;
 use Carbon\Carbon;
@@ -50,7 +51,12 @@ class AvailabilityController extends Controller
                 ->overlapping($checkIn, $checkOut)
                 ->count();
 
-            $remainingInventory = $room->total_inventory - $bookedUnits;
+            $restrictedUnits = (int) AccommodationRestriction::where('room_id', $room->id)
+                ->active()
+                ->overlapping($checkIn, $checkOut)
+                ->sum('blocked_units');
+
+            $remainingInventory = max(0, $room->total_inventory - $bookedUnits - $restrictedUnits);
 
             if ($remainingInventory > 0) {
                 $nightlyRate = (float) $room->nightly_rate_php;

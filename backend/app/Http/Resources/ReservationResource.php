@@ -18,6 +18,12 @@ class ReservationResource extends JsonResource
             'id' => $this->id,
             'booking_reference' => $this->booking_reference,
             'status' => $this->status,
+            'booking_source' => $this->booking_source ?? 'website',
+            'created_by' => $this->createdBy ? [
+                'id' => $this->createdBy->id,
+                'name' => $this->createdBy->name,
+                'role' => $this->createdBy->role,
+            ] : null,
             'check_in' => $this->check_in instanceof \DateTimeInterface ? $this->check_in->format('Y-m-d') : (string) $this->check_in,
             'check_out' => $this->check_out instanceof \DateTimeInterface ? $this->check_out->format('Y-m-d') : (string) $this->check_out,
             'nights' => (int) $this->nights,

@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, use } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import {
   getAdminReservation,
   updateAdminReservationStatus,
@@ -29,6 +30,8 @@ interface PageProps {
 }
 
 export default function AdminReservationDetailPage({ params }: PageProps) {
+  const pathname = usePathname();
+  const portalBase = pathname.startsWith("/staff") ? "/staff" : "/admin";
   const resolvedParams = use(params);
   const reservationId = parseInt(resolvedParams.id, 10);
 
@@ -266,7 +269,7 @@ export default function AdminReservationDetailPage({ params }: PageProps) {
         <h3 className="text-lg font-serif font-bold text-red-900 mb-2">Reservation Not Found</h3>
         <p className="text-sm mb-6">{error || "Unable to locate this reservation."}</p>
         <Link
-          href="/admin/reservations"
+          href={`${portalBase}/reservations`}
           className="inline-flex items-center px-4 py-2 bg-forest-900 text-white rounded-lg hover:bg-forest-800 transition"
         >
           ← Back to Reservations
@@ -354,7 +357,7 @@ export default function AdminReservationDetailPage({ params }: PageProps) {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-ivory-300">
         <div className="flex items-center gap-3">
           <Link
-            href="/admin/reservations"
+            href={`${portalBase}/reservations`}
             className="text-stone-600 hover:text-forest transition text-sm flex items-center gap-1 font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-forest focus-visible:ring-offset-2 rounded"
           >
             ← Back to Reservations
@@ -621,7 +624,7 @@ export default function AdminReservationDetailPage({ params }: PageProps) {
               {reservation.guest?.id && (
                 <div className="pt-4 border-t border-ivory-200">
                   <Link
-                    href={`/admin/customers/${reservation.guest.id}`}
+                    href={`${portalBase}/customers/${reservation.guest.id}`}
                     className="inline-flex items-center text-xs text-forest-800 hover:text-gold-700 font-semibold transition"
                   >
                     View Guest Profile & Stay History →

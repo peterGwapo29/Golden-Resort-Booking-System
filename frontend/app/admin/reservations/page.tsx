@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import {
   getAdminReservations,
   updateAdminReservationStatus,
@@ -13,10 +14,14 @@ import {
   FilterIcon,
   CloseIcon,
   InfoIcon,
+  PlusIcon,
 } from "@/components/ui/Icons";
 import DataTablesWrapper from "@/components/admin/DataTablesWrapper";
+import CreateReservationModal from "@/components/admin/CreateReservationModal";
 
 export default function AdminReservationsPage() {
+  const pathname = usePathname();
+  const portalBase = pathname.startsWith("/staff") ? "/staff" : "/admin";
   const [data, setData] = useState<PaginatedResult<any> | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -24,6 +29,9 @@ export default function AdminReservationsPage() {
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [page, setPage] = useState(1);
+
+  // Creation Modal State
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
   // Status Modal State
   const [modalOpen, setModalOpen] = useState(false);
@@ -122,14 +130,21 @@ export default function AdminReservationsPage() {
     ref: (_cellData: any, rowData: any) => (
       <div>
         <Link
-          href={`/admin/reservations/${rowData.id || rowData.booking_reference}`}
+          href={`${portalBase}/reservations/${rowData.id || rowData.booking_reference}`}
           className="font-mono text-xs font-bold text-forest hover:text-gold"
         >
           {rowData.booking_reference}
         </Link>
-        <span className="block text-[0.7rem] text-muted">
-          {new Date(rowData.created_at).toLocaleDateString()}
-        </span>
+        <div className="flex items-center gap-1.5 mt-0.5">
+          <span className="block text-[0.7rem] text-muted">
+            {new Date(rowData.created_at).toLocaleDateString()}
+          </span>
+          {rowData.booking_source && rowData.booking_source !== "website" && (
+            <span className="rounded bg-gold/15 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-forest">
+              {rowData.booking_source.replace("_", " ")}
+            </span>
+          )}
+        </div>
       </div>
     ),
     guest: (_cellData: any, rowData: any) => (
@@ -194,7 +209,7 @@ export default function AdminReservationsPage() {
           Change Status
         </button>
         <Link
-          href={`/admin/reservations/${rowData.id || rowData.booking_reference}`}
+          href={`${portalBase}/reservations/${rowData.id || rowData.booking_reference}`}
           className="rounded-lg border border-slate-200 px-2.5 py-1 text-slate-600 hover:bg-slate-50 transition"
         >
           Details
@@ -206,13 +221,23 @@ export default function AdminReservationsPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <span className="text-xs font-semibold tracking-wider text-gold uppercase">
-          Bookings Management
-        </span>
-        <h2 className="font-serif text-3xl font-medium text-forest sm:text-4xl">
-          Reservations Directory
-        </h2>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <span className="text-xs font-semibold tracking-wider text-gold uppercase">
+            Bookings Management
+          </span>
+          <h2 className="font-serif text-3xl font-medium text-forest sm:text-4xl">
+            Reservations Directory
+          </h2>
+        </div>
+        <button
+          type="button"
+          onClick={() => setIsCreateModalOpen(true)}
+          className="inline-flex items-center gap-2 rounded-xl bg-forest px-5 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-forest-dark transition cursor-pointer self-start sm:self-auto"
+        >
+          <PlusIcon className="h-4 w-4 text-gold" />
+          <span> New Walk-In / Reservation</span>
+        </button>
       </div>
 
       {actionSuccess && (
@@ -400,6 +425,16 @@ export default function AdminReservationsPage() {
           </div>
         </div>
       )}
+
+      {/* Direct Walk-In & Phone Reservation Creation Modal */}
+      <CreateReservationModal
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        onSuccess={() => {
+          fetchReservations();
+          setActionSuccess("Reservation created successfully.");
+        }}
+      />
     </div>
   );
 }

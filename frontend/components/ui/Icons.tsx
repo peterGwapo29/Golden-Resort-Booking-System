@@ -370,3 +370,43 @@ export function MailIcon(props: IconProps) {
   );
 }
 
+export function UserIcon(props: IconProps) {
+  return (
+    <BaseIcon {...props}>
+      <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
+      <circle cx="12" cy="7" r="4" />
+    </BaseIcon>
+  );
+}
+
+export function AreaIcon(props: IconProps) {
+  return (
+    <BaseIcon {...props}>
+      <path d="M21 3H3v18h18V3z" />
+      <path d="M3 9h6M9 3v6M15 21v-6M21 15h-6" />
+    </BaseIcon>
+  );
+}
+
+export function SpinnerIcon({ className, ...props }: IconProps) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      className={`animate-spin ${className || ""}`}
+      aria-hidden="true"
+      focusable="false"
+      {...props}
+    >
+      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
+      <path
+        className="opacity-75"
+        fill="currentColor"
+        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+      />
+    </svg>
+  );
+}
+
+
