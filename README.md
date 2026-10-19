@@ -49,7 +49,7 @@ The project uses a separate frontend and backend architecture, with Next.js hand
 
 | Layer | Technologies |
 |---|---|
-| Frontend | Next.js, React, TypeScript |
+| Frontend | Next.js, TypeScript |
 | Styling | Tailwind CSS |
 | Backend | PHP, Laravel |
 | API | REST API |
@@ -233,6 +233,7 @@ Full-Stack Developer
 
 - GitHub: [@peterGwapo29](https://github.com/peterGwapo29)
 - Repository: [Golden Resort Booking System](https://github.com/peterGwapo29/Golden-Resort-Booking-System)
+- Portfolio: [peter-lyart.vercel.app](https://peter-lyart.vercel.app/)
 
 ## License
 
